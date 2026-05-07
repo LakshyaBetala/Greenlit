@@ -1,0 +1,31 @@
+# Python
+__pycache__/
+*.pyc
+*.pyo
+.venv/
+venv/
+.env
+*.egg-info/
+
+# Node
+node_modules/
+.next/
+out/
+dist/
+.env.local
+.env.*.local
+
+# Storage / ML artifacts
+.storage/
+storage/
+*.chroma/
+chroma_db/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# IDE
+.idea/
+.vscode/
+*.swp
