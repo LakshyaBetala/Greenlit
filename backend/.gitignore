@@ -1,0 +1,92 @@
+# =========================
+# Python / FastAPI
+# =========================
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+*.egg-info/
+.eggs/
+.env
+.venv/
+venv/
+ENV/
+env/
+pip-wheel-metadata/
+
+# =========================
+# Virtual Environments
+# =========================
+venv/
+.venv/
+env/
+ENV/
+
+# =========================
+# Environment & Secrets
+# =========================
+.env
+.env.*
+*.key
+*.pem
+
+# =========================
+# OS / Editor
+# =========================
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# =========================
+# Logs & Runtime Files
+# =========================
+logs/
+*.log
+*.pid
+
+# =========================
+# Agent / ChaosSim Specific
+# =========================
+# Cloned GitHub repositories
+storage/repos/
+storage/clones/
+storage/workspaces/
+
+# Agent memory / vector stores
+storage/agent_memory/
+storage/vector_store/
+
+# Generated reports
+storage/reports/
+
+# Temporary chaos artifacts
+storage/chaos_runs/
+storage/tmp/
+
+# =========================
+# Docker
+# =========================
+*.tar
+*.img
+docker-data/
+.docker/
+
+# =========================
+# Test / Coverage
+# =========================
+.coverage
+htmlcov/
+.pytest_cache/
+
+# =========================
+# Misc
+# =========================
+node_modules/
+dist/
+build/
+.storage/
+
+.storage/
