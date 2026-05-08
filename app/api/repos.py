@@ -70,6 +70,7 @@ class AutoFixRequest(BaseModel):
     repo_name: str
     vulnerabilities: List[Dict[str, Any]]
     scan_id: Optional[str] = None
+    github_token: Optional[str] = None  # user's token; falls back to GITHUB_TOKEN env var
 
 class ChatRequest(BaseModel):
     question: str
@@ -246,6 +247,22 @@ async def untrack_repository(repo_id: str, authorization: str = Header(None)):
     return {"status": "removed"}
 
 
+class MonitoringToggleRequest(BaseModel):
+    enabled: bool
+
+
+@router.patch("/{repo_id}/monitoring")
+async def toggle_repo_monitoring(repo_id: str, payload: MonitoringToggleRequest, authorization: str = Header(None)):
+    """Enable or disable continuous monitoring for a tracked repo."""
+    if not authorization:
+        raise HTTPException(status_code=401, detail="Missing token")
+    repo = get_repo_by_id(repo_id)
+    if not repo:
+        raise HTTPException(status_code=404, detail="Repo not found")
+    toggle_monitoring(repo_id, payload.enabled)
+    return {"status": "ok", "is_monitoring": payload.enabled}
+
+
 @router.post("/{repo_id}/scan")
 async def trigger_scan(repo_id: str):
     """Manually trigger a new scan for a tracked repo."""
@@ -347,11 +364,16 @@ async def list_repos(authorization: str = Header(None)):
 # ── Auto-Fix (Paid Tier) ──────────────────────
 
 @router.post("/autofix")
-async def autofix_vulnerabilities(payload: AutoFixRequest):
+async def autofix_vulnerabilities(payload: AutoFixRequest, authorization: str = Header(None)):
     """Auto-Fix PR generation — marked as paid tier."""
     from app.database import update_scan_autofix_pr
+    # Prefer user token from payload, then Authorization header, then env var
+    user_token = (
+        payload.github_token
+        or (authorization.replace("Bearer ", "") if authorization else None)
+    )
     try:
-        pr_url = generate_and_apply_fix(payload.repo_name, payload.vulnerabilities)
+        pr_url = generate_and_apply_fix(payload.repo_name, payload.vulnerabilities, user_token)
         if payload.scan_id and pr_url and "error-" not in pr_url and "mock-" not in pr_url:
             update_scan_autofix_pr(payload.scan_id, pr_url)
 

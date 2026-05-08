@@ -11,7 +11,7 @@ These are the viral loop — every badge on a README drives traffic back.
 """
 from fastapi import APIRouter, HTTPException
 from fastapi.responses import Response
-from app.database import get_repo_by_id, get_scan, get_scan_history
+from app.database import get_repo_by_id, get_scan, get_scan_history, get_db
 
 router = APIRouter()
 
@@ -140,10 +140,17 @@ async def get_public_report(scan_id: str):
     if not scan:
         raise HTTPException(status_code=404, detail="Scan not found")
 
-    # Return a safe subset (no internal IDs)
+    # Fetch repo_name for OG tags
+    repo_name = None
+    with get_db() as db:
+        row = db.execute("SELECT full_name FROM repos WHERE id = ?", (scan["repo_id"],)).fetchone()
+        if row:
+            repo_name = row["full_name"]
+
     report = scan.get("report_json", {})
     return {
         "scan_id": scan["id"],
+        "repo_name": repo_name,
         "health_score": scan.get("health_score"),
         "vulnerabilities_count": scan.get("vulnerabilities_count", 0),
         "critical_count": scan.get("critical_count", 0),

@@ -1,10 +1,8 @@
 -- Greenlit — Database Schema
 -- ═══════════════════════════════════════════════
--- ═══════════════════════════════════════════════
--- SQLite-compatible (Phase 1 local dev)
--- Supabase/Postgres-compatible (Phase 2 production)
+-- SQLite (local dev + production on Oracle free tier)
+-- WAL mode + foreign keys enabled in database.py on every connection
 
--- Users: GitHub-authenticated accounts
 CREATE TABLE IF NOT EXISTS users (
     id TEXT PRIMARY KEY,
     github_id INTEGER UNIQUE NOT NULL,
@@ -18,10 +16,9 @@ CREATE TABLE IF NOT EXISTS users (
     created_at TEXT DEFAULT (datetime('now'))
 );
 
--- Repos: Tracked repositories
 CREATE TABLE IF NOT EXISTS repos (
     id TEXT PRIMARY KEY,
-    user_id TEXT REFERENCES users(id),
+    user_id TEXT REFERENCES users(id) ON DELETE CASCADE,
     github_url TEXT NOT NULL,
     name TEXT NOT NULL,
     full_name TEXT NOT NULL,
@@ -34,10 +31,9 @@ CREATE TABLE IF NOT EXISTS repos (
     UNIQUE(user_id, github_url)
 );
 
--- Scans: Individual analysis results
 CREATE TABLE IF NOT EXISTS scans (
     id TEXT PRIMARY KEY,
-    repo_id TEXT REFERENCES repos(id),
+    repo_id TEXT REFERENCES repos(id) ON DELETE CASCADE,
     health_score INTEGER,
     vulnerabilities_count INTEGER DEFAULT 0,
     critical_count INTEGER DEFAULT 0,
@@ -54,8 +50,26 @@ CREATE TABLE IF NOT EXISTS scans (
     created_at TEXT DEFAULT (datetime('now'))
 );
 
--- Indexes
-CREATE INDEX IF NOT EXISTS idx_scans_repo ON scans(repo_id);
-CREATE INDEX IF NOT EXISTS idx_scans_status ON scans(status);
-CREATE INDEX IF NOT EXISTS idx_repos_user ON repos(user_id);
-CREATE INDEX IF NOT EXISTS idx_repos_monitoring ON repos(is_monitoring) WHERE is_monitoring = 1;
+-- ── Indices ───────────────────────────────────────────────────────────────────
+-- These cover every hot query path. Check with EXPLAIN QUERY PLAN if adding new queries.
+
+-- scans: most queries filter by repo_id, then sort by created_at
+CREATE INDEX IF NOT EXISTS idx_scans_repo_created  ON scans(repo_id, created_at DESC);
+
+-- scans: commit-SHA deduplication cache lookup
+CREATE INDEX IF NOT EXISTS idx_scans_commit        ON scans(repo_id, commit_sha) WHERE commit_sha IS NOT NULL;
+
+-- scans: status filter (processing scans on startup reset, stats queries)
+CREATE INDEX IF NOT EXISTS idx_scans_status        ON scans(status);
+
+-- repos: user dashboard load
+CREATE INDEX IF NOT EXISTS idx_repos_user_created  ON repos(user_id, created_at DESC);
+
+-- repos: URL lookup for anonymous scans and webhook routing
+CREATE INDEX IF NOT EXISTS idx_repos_url           ON repos(github_url);
+
+-- repos: monitoring worker queries
+CREATE INDEX IF NOT EXISTS idx_repos_monitoring    ON repos(is_monitoring) WHERE is_monitoring = 1;
+
+-- users: OAuth login lookup (github_id already has UNIQUE index, this is redundant but explicit)
+CREATE INDEX IF NOT EXISTS idx_users_github_id     ON users(github_id);
