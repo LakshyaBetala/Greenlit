@@ -3,7 +3,7 @@
 Copy `.env.example` to `.env` and fill in the values below.
 
 ```
-cd chaosmonkey-backend
+cd backend
 copy .env.example .env   # Windows
 cp .env.example .env     # Mac/Linux
 ```
