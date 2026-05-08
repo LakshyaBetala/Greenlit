@@ -43,5 +43,4 @@ async def ping_production_urls():
         await asyncio.sleep(300)
 
 def start_uptime_worker():
-    loop = asyncio.get_event_loop()
-    loop.create_task(ping_production_urls())
+    asyncio.ensure_future(ping_production_urls())

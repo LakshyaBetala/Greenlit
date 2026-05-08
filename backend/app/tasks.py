@@ -139,12 +139,13 @@ def process_diff_scan(scan_id: str, github_url: str, changed_files: list = None,
 
         critical_count = sum(1 for v in report.get("vulnerabilities", []) if v.get("severity") == "critical")
         if critical_count > 0:
-            from app.services.email_service import send_security_alert
-            # Extract repo name from github_url, e.g. "https://github.com/user/repo" -> "user/repo"
-            repo_name = github_url.replace("https://github.com/", "").replace(".git", "")
-            # In production, we'd fetch the user's real email from the DB here
-            user_email = f"founder@{repo_name.split('/')[0]}.app"
-            send_security_alert(user_email, repo_name, critical_count, scan_id)
+            try:
+                from app.services.email_service import send_security_alert
+                user_email, repo_full_name = get_scan_owner_email(scan_id)
+                if user_email and repo_full_name:
+                    send_security_alert(user_email, repo_full_name, critical_count, scan_id)
+            except Exception as alert_err:
+                print(f"WARN: diff-scan alert email failed: {alert_err}")
 
         print(f"DIFF SCAN: {github_url} — {len(changed_files or [])} files, "
               f"{len(report.get('vulnerabilities', []))} new issues found")

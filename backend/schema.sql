@@ -73,3 +73,17 @@ CREATE INDEX IF NOT EXISTS idx_repos_monitoring    ON repos(is_monitoring) WHERE
 
 -- users: OAuth login lookup (github_id already has UNIQUE index, this is redundant but explicit)
 CREATE INDEX IF NOT EXISTS idx_users_github_id     ON users(github_id);
+
+-- ── DAST Probe Results ────────────────────────────────────────────────────────
+-- Persisted so probe status survives server restarts
+
+CREATE TABLE IF NOT EXISTS probes (
+    id TEXT PRIMARY KEY,
+    url TEXT NOT NULL,
+    status TEXT NOT NULL DEFAULT 'queued',
+    result_json TEXT,
+    error TEXT,
+    created_at TEXT DEFAULT (datetime('now'))
+);
+
+CREATE INDEX IF NOT EXISTS idx_probes_created ON probes(created_at DESC);

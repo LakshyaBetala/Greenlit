@@ -17,25 +17,6 @@ from app.database import get_db
 router = APIRouter()
 
 
-def _ensure_probe_table():
-    """Create probes table if it doesn't exist."""
-    with get_db() as db:
-        db.execute("""
-            CREATE TABLE IF NOT EXISTS probes (
-                id TEXT PRIMARY KEY,
-                url TEXT NOT NULL,
-                status TEXT NOT NULL DEFAULT 'queued',
-                result_json TEXT,
-                error TEXT,
-                created_at TEXT DEFAULT (datetime('now'))
-            )
-        """)
-
-
-# Initialize on import
-_ensure_probe_table()
-
-
 class ProbeRequest(BaseModel):
     url: str
 
