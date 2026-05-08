@@ -18,23 +18,25 @@ export default function IdeaToAppPage() {
   };
   const [result, setResult] = useState<IdeaResult | null>(null);
   const [copied, setCopied] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
   const handleGenerate = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!idea.trim()) return;
     setLoading(true);
     setResult(null);
+    setError(null);
     try {
       const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL || "http://127.0.0.1:8000"}/api/idea/generate`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ idea, mode })
       });
+      if (!res.ok) throw new Error(`Server error: ${res.status}`);
       const data = await res.json();
       setResult(data);
     } catch (err) {
-      console.error(err);
-      alert("Failed to generate blueprint.");
+      setError(err instanceof Error ? err.message : "Failed to generate blueprint.");
     } finally {
       setLoading(false);
     }
@@ -95,6 +97,12 @@ export default function IdeaToAppPage() {
             <p style={{ marginBottom: "2.5rem", fontSize: "1.0625rem", color: "var(--text-secondary)", lineHeight: 1.6 }}>
               Describe your idea in plain English. We&apos;ll generate the perfect tech stack and the exact prompt to paste into Antigravity or Bolt to build it for free.
             </p>
+
+            {error && (
+              <div style={{ background: "rgba(239,68,68,0.08)", border: "1px solid rgba(239,68,68,0.25)", borderRadius: "8px", padding: "0.75rem 1rem", marginBottom: "1rem", fontSize: "0.875rem", color: "#ef4444" }}>
+                {error}
+              </div>
+            )}
 
             <form onSubmit={handleGenerate} style={{ ...S.card, padding: "1.5rem", display: "flex", flexDirection: "column", gap: "1.5rem" }}>
               <textarea

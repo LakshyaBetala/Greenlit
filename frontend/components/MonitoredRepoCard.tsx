@@ -44,7 +44,6 @@ export default function MonitoredRepoCard({
   const hasWebhook = !!(repo as unknown as Record<string, unknown>).webhook_id;
 
   const isUp = repo.last_uptime_status?.startsWith("up");
-  const _isDown = repo.last_uptime_status?.startsWith("down"); void _isDown;
 
   return (
     <div

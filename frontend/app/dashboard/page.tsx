@@ -3,8 +3,8 @@
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import {
-  fetchMonitoredRepos, fetchRepos, fetchGitHubUser,
-  trackRepo, triggerScan, fetchRepoHistory, getUserPlan,
+  fetchMonitoredRepos, fetchGitHubUser,
+  trackRepo, triggerScan, fetchRepoHistory, getUserPlan, toggleMonitor,
 } from "@/services/api";
 import { MonitoredRepo, Repository, GitHubUser } from "@/types";
 import DashboardHeader from "@/components/DashboardHeader";
@@ -136,10 +136,10 @@ export default function Dashboard() {
     setScanningRepos(prev => new Set(prev).add(repoId));
     try {
       const { scan_id } = await triggerScan(repoId);
-      // Navigate to explore page to show scan progress
       const repo = monitoredRepos.find(r => r.id === repoId);
       if (repo) {
-        router.push(`/explore?url=${encodeURIComponent(repo.github_url)}`);
+        // Pass scan_id so explore can poll the existing scan instead of starting a new one
+        router.push(`/explore?url=${encodeURIComponent(repo.github_url)}&scan_id=${scan_id}`);
       }
     } catch (err) {
       console.error("Failed to trigger scan:", err);
@@ -153,9 +153,19 @@ export default function Dashboard() {
   };
 
   const handleToggleMonitor = async (repoId: string, enabled: boolean) => {
+    // Optimistic update
     setMonitoredRepos(prev =>
       prev.map(r => r.id === repoId ? { ...r, is_monitoring: enabled ? 1 : 0 } : r)
     );
+    try {
+      await toggleMonitor(repoId, enabled);
+    } catch (err) {
+      console.error("Failed to toggle monitoring:", err);
+      // Revert on failure
+      setMonitoredRepos(prev =>
+        prev.map(r => r.id === repoId ? { ...r, is_monitoring: enabled ? 0 : 1 } : r)
+      );
+    }
   };
 
   const handleViewReport = (repoId: string) => {

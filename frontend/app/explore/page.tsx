@@ -21,6 +21,7 @@ function ExploreContent() {
   const searchParams = useSearchParams();
   const router = useRouter();
   const githubUrl = searchParams.get("url") || "";
+  const existingScanId = searchParams.get("scan_id") || "";
 
   const [status, setStatus] = useState<"loading" | "done" | "error">("loading");
   const [report, setReport] = useState<AnalysisReport | null>(null);
@@ -109,43 +110,50 @@ Please:
       setProgress(progressSteps[progressIndex]);
     }, 4000);
 
-    const startAnalysis = async () => {
-      try {
-        const { job_id } = await analyzeUrl(githubUrl);
-
-        pollInterval = setInterval(async () => {
-          if (Date.now() - pollStartTime > MAX_POLL_DURATION_MS) {
+    const pollScan = (jobId: string) => {
+      pollInterval = setInterval(async () => {
+        if (Date.now() - pollStartTime > MAX_POLL_DURATION_MS) {
+          clearInterval(pollInterval);
+          clearInterval(progressTimer);
+          setError("Analysis timed out after 5 minutes. Try a smaller repository.");
+          setStatus("error");
+          return;
+        }
+        try {
+          const statusRes = await pollJobStatus(jobId);
+          pollFailures = 0;
+          if (statusRes.status === "complete") {
             clearInterval(pollInterval);
             clearInterval(progressTimer);
-            setError("Analysis timed out after 5 minutes. Try a smaller repository.");
+            setReport(statusRes.result);
+            setStatus("done");
+          } else if (statusRes.status === "error") {
+            clearInterval(pollInterval);
+            clearInterval(progressTimer);
+            setError(statusRes.error || "Analysis failed.");
             setStatus("error");
-            return;
           }
+        } catch {
+          pollFailures++;
+          if (pollFailures >= MAX_POLL_FAILURES) {
+            clearInterval(pollInterval);
+            clearInterval(progressTimer);
+            setError("Lost connection to analysis server. Please try again.");
+            setStatus("error");
+          }
+        }
+      }, 3000);
+    };
 
-          try {
-            const statusRes = await pollJobStatus(job_id);
-            pollFailures = 0;
-            if (statusRes.status === "complete") {
-              clearInterval(pollInterval);
-              clearInterval(progressTimer);
-              setReport(statusRes.result);
-              setStatus("done");
-            } else if (statusRes.status === "error") {
-              clearInterval(pollInterval);
-              clearInterval(progressTimer);
-              setError(statusRes.error || "Analysis failed.");
-              setStatus("error");
-            }
-          } catch {
-            pollFailures++;
-            if (pollFailures >= MAX_POLL_FAILURES) {
-              clearInterval(pollInterval);
-              clearInterval(progressTimer);
-              setError("Lost connection to analysis server. Please try again.");
-              setStatus("error");
-            }
-          }
-        }, 3000);
+    const startAnalysis = async () => {
+      try {
+        // If triggered from dashboard with an existing scan_id, poll it directly
+        if (existingScanId) {
+          pollScan(existingScanId);
+          return;
+        }
+        const { job_id } = await analyzeUrl(githubUrl);
+        pollScan(job_id);
       } catch {
         clearInterval(progressTimer);
         setError("Failed to start analysis. Is the backend running?");
