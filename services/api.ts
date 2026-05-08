@@ -83,6 +83,15 @@ export async function untrackRepo(repoId: string): Promise<void> {
   if (!res.ok) throw new Error("Failed to untrack repo");
 }
 
+export async function toggleMonitor(repoId: string, enabled: boolean): Promise<void> {
+  const res = await fetch(`${BASE_URL}/api/repos/${repoId}/monitoring`, {
+    method: "PATCH",
+    headers: { "Content-Type": "application/json", ...authHeaders() },
+    body: JSON.stringify({ enabled }),
+  });
+  if (!res.ok) throw new Error("Failed to toggle monitoring");
+}
+
 export async function triggerScan(repoId: string): Promise<{ scan_id: string }> {
   const res = await fetch(`${BASE_URL}/api/repos/${repoId}/scan`, {
     method: "POST",
@@ -132,11 +141,16 @@ export async function fetchGitHubUser() {
 
 // ── Auto-Fix & Chat ───────────────────────────
 
-export async function generateAutoFixPR(repoName: string, vulnerabilities: Record<string, unknown>[]) {
+export async function generateAutoFixPR(repoName: string, vulnerabilities: Record<string, unknown>[], scanId?: string) {
   const res = await fetch(`${BASE_URL}/api/repos/autofix`, {
     method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ repo_name: repoName, vulnerabilities }),
+    headers: { "Content-Type": "application/json", ...authHeaders() },
+    body: JSON.stringify({
+      repo_name: repoName,
+      vulnerabilities,
+      scan_id: scanId,
+      github_token: getToken(),  // user's token so PR is created on their behalf
+    }),
   });
   if (!res.ok) throw new Error("Failed to generate Auto-Fix PR");
   return res.json();
