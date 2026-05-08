@@ -4,7 +4,7 @@ import json
 import uuid
 from datetime import datetime
 
-def generate_and_apply_fix(repo_name: str, vulnerabilities: list) -> str:
+def generate_and_apply_fix(repo_name: str, vulnerabilities: list, user_token: str | None = None) -> str:
     """
     Takes a repository name and a list of vulnerabilities.
     Uses Gemini to generate the full replacement code, and GitHub API to push it and open a PR.
@@ -16,10 +16,11 @@ def generate_and_apply_fix(repo_name: str, vulnerabilities: list) -> str:
     repo_name = repo_name.strip("/").removesuffix(".git")
 
     gemini_key = os.getenv("GEMINI_API_KEY")
-    github_token = os.getenv("GITHUB_TOKEN")
+    # Prefer user token (has write access to their own repos) over server env token
+    github_token = user_token or os.getenv("GITHUB_TOKEN")
 
     if not github_token:
-        print("WARN: Missing GITHUB_TOKEN. Cannot push PR. Returning mock PR URL.")
+        print("WARN: No GitHub token provided. Cannot push PR. Returning mock PR URL.")
         time.sleep(2)
         return f"https://github.com/{repo_name}/pull/mock-no-token"
 

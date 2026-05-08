@@ -1,5 +1,6 @@
 """
-Greenlit — Database Layer (SQLite for local dev, Supabase-ready schema)
+Greenlit — Database Layer
+SQLite with WAL mode, production-tuned PRAGMAs, and zero N+1 queries.
 """
 import sqlite3
 import json
@@ -9,7 +10,6 @@ from datetime import datetime, timezone
 from pathlib import Path
 from contextlib import contextmanager
 
-# Database file location — outside the app/ directory to avoid reload triggers
 DB_PATH = os.getenv(
     "DATABASE_PATH",
     os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), ".storage", "greenlit.db"),
@@ -17,18 +17,26 @@ DB_PATH = os.getenv(
 SCHEMA_PATH = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "schema.sql")
 
 
-def _ensure_db():
-    """Create database and tables if they don't exist."""
-    os.makedirs(os.path.dirname(DB_PATH), exist_ok=True)
-    conn = sqlite3.connect(DB_PATH)
+def _apply_pragmas(conn: sqlite3.Connection):
+    """Apply production-grade SQLite settings to a connection."""
     conn.execute("PRAGMA journal_mode=WAL")
     conn.execute("PRAGMA foreign_keys=ON")
+    conn.execute("PRAGMA synchronous=NORMAL")       # safe with WAL; faster than FULL
+    conn.execute("PRAGMA cache_size=-65536")         # 64 MB page cache
+    conn.execute("PRAGMA temp_store=MEMORY")
+    conn.execute("PRAGMA mmap_size=268435456")       # 256 MB memory-mapped I/O
+
+
+def _ensure_db():
+    """Create database, tables, and indices if they don't exist."""
+    os.makedirs(os.path.dirname(DB_PATH), exist_ok=True)
+    conn = sqlite3.connect(DB_PATH)
+    _apply_pragmas(conn)
     with open(SCHEMA_PATH, "r", encoding="utf-8") as f:
         conn.executescript(f.read())
     conn.close()
 
 
-# Initialize on import
 _ensure_db()
 
 
@@ -42,10 +50,10 @@ def _now() -> str:
 
 @contextmanager
 def get_db():
-    """Context manager for database connections with row_factory."""
+    """Context manager — auto-commits on success, rolls back on exception."""
     conn = sqlite3.connect(DB_PATH)
     conn.row_factory = sqlite3.Row
-    conn.execute("PRAGMA foreign_keys=ON")
+    _apply_pragmas(conn)
     try:
         yield conn
         conn.commit()
@@ -61,7 +69,6 @@ def get_db():
 # ═══════════════════════════════════════════════
 
 def upsert_user(github_id: int, login: str, name: str = None, avatar_url: str = None, email: str = None) -> dict:
-    """Create or update a user from GitHub OAuth data."""
     with get_db() as db:
         existing = db.execute("SELECT * FROM users WHERE github_id = ?", (github_id,)).fetchone()
         if existing:
@@ -97,7 +104,6 @@ def update_user_plan(
     stripe_customer_id: str | None = None,
     razorpay_sub_id: str | None = None,
 ) -> None:
-    """Upgrade or downgrade a user's plan. Called by payment webhooks."""
     with get_db() as db:
         if stripe_customer_id:
             db.execute(
@@ -118,7 +124,6 @@ def update_user_plan(
 # ═══════════════════════════════════════════════
 
 def track_repo(user_id: str, github_url: str, name: str, full_name: str) -> dict:
-    """Add a repo to the user's tracked list."""
     with get_db() as db:
         existing = db.execute(
             "SELECT * FROM repos WHERE user_id = ? AND github_url = ?",
@@ -136,23 +141,43 @@ def track_repo(user_id: str, github_url: str, name: str, full_name: str) -> dict
 
 
 def get_tracked_repos(user_id: str) -> list[dict]:
-    """Get all repos tracked by a user, with latest scan info."""
+    """
+    Fetch all repos for a user with their latest scan in a single query.
+    Uses a window function (SQLite 3.25+) to avoid N+1 queries.
+    """
     with get_db() as db:
-        repos = db.execute(
+        rows = db.execute(
             "SELECT * FROM repos WHERE user_id = ? ORDER BY created_at DESC",
             (user_id,),
         ).fetchall()
 
+        if not rows:
+            return []
+
+        repo_ids = [r["id"] for r in rows]
+        placeholders = ",".join(["?"] * len(repo_ids))
+
+        # Single query for all latest scans — window function picks the newest per repo
+        scan_rows = db.execute(
+            f"""WITH ranked AS (
+                  SELECT id, repo_id, health_score, vulnerabilities_count, critical_count,
+                         status, created_at,
+                         ROW_NUMBER() OVER (PARTITION BY repo_id ORDER BY created_at DESC) AS rn
+                  FROM scans
+                  WHERE repo_id IN ({placeholders})
+                )
+                SELECT id, repo_id, health_score, vulnerabilities_count, critical_count,
+                       status, created_at
+                FROM ranked WHERE rn = 1""",
+            repo_ids,
+        ).fetchall()
+
+        latest_by_repo = {s["repo_id"]: dict(s) for s in scan_rows}
+
         result = []
-        for repo in repos:
+        for repo in rows:
             repo_dict = dict(repo)
-            # Get latest scan
-            latest = db.execute(
-                "SELECT id, health_score, vulnerabilities_count, critical_count, status, created_at "
-                "FROM scans WHERE repo_id = ? ORDER BY created_at DESC LIMIT 1",
-                (repo_dict["id"],),
-            ).fetchone()
-            repo_dict["latest_scan"] = dict(latest) if latest else None
+            repo_dict["latest_scan"] = latest_by_repo.get(repo_dict["id"])
             result.append(repo_dict)
         return result
 
@@ -164,7 +189,6 @@ def get_repo_by_id(repo_id: str) -> dict | None:
 
 
 def get_repo_by_url(github_url: str, user_id: str = None) -> dict | None:
-    """Find a repo by URL, optionally scoped to a user."""
     with get_db() as db:
         if user_id:
             row = db.execute(
@@ -189,8 +213,8 @@ def toggle_monitoring(repo_id: str, enabled: bool) -> dict:
 
 
 def untrack_repo(repo_id: str):
+    # ON DELETE CASCADE in schema handles scans deletion
     with get_db() as db:
-        db.execute("DELETE FROM scans WHERE repo_id = ?", (repo_id,))
         db.execute("DELETE FROM repos WHERE id = ?", (repo_id,))
 
 
@@ -199,7 +223,6 @@ def untrack_repo(repo_id: str):
 # ═══════════════════════════════════════════════
 
 def create_scan(repo_id: str, scan_type: str = "full") -> dict:
-    """Create a new pending scan record."""
     scan_id = _gen_id()
     with get_db() as db:
         db.execute(
@@ -210,66 +233,52 @@ def create_scan(repo_id: str, scan_type: str = "full") -> dict:
 
 
 def update_scan_status(scan_id: str, status: str, error: str = None):
-    """Update scan status (processing, complete, error)."""
     with get_db() as db:
         if status == "complete":
             db.execute(
-                "UPDATE scans SET status = ?, completed_at = ? WHERE id = ?",
+                "UPDATE scans SET status=?, completed_at=? WHERE id=?",
                 (status, _now(), scan_id),
             )
         elif status == "error":
             db.execute(
-                "UPDATE scans SET status = ?, error = ?, completed_at = ? WHERE id = ?",
+                "UPDATE scans SET status=?, error=?, completed_at=? WHERE id=?",
                 (status, error, _now(), scan_id),
             )
         else:
-            db.execute("UPDATE scans SET status = ? WHERE id = ?", (status, scan_id))
+            db.execute("UPDATE scans SET status=? WHERE id=?", (status, scan_id))
 
 
 def update_scan_autofix_pr(scan_id: str, pr_url: str):
-    """Save the URL of the generated Auto-Fix PR for a scan."""
     with get_db() as db:
-        db.execute("UPDATE scans SET autofix_pr_url = ? WHERE id = ?", (pr_url, scan_id))
+        db.execute("UPDATE scans SET autofix_pr_url=? WHERE id=?", (pr_url, scan_id))
 
 
 def save_scan_result(scan_id: str, report: dict, commit_sha: str = None):
-    """Save completed scan results."""
     health_score = report.get("health_score", 0)
     vulns = report.get("vulnerabilities", [])
     vuln_count = len(vulns)
     critical_count = sum(1 for v in vulns if v.get("severity") == "critical")
     high_count = sum(1 for v in vulns if v.get("severity") == "high")
-    changelog_summary = report.get("changelog_summary", None)
+    changelog_summary = report.get("changelog_summary")
 
     with get_db() as db:
         db.execute(
             """UPDATE scans SET
-                status = 'complete',
-                health_score = ?,
-                vulnerabilities_count = ?,
-                critical_count = ?,
-                high_count = ?,
-                commit_sha = ?,
-                report_json = ?,
-                changelog_summary = ?,
-                completed_at = ?
-            WHERE id = ?""",
+                status='complete', health_score=?, vulnerabilities_count=?,
+                critical_count=?, high_count=?, commit_sha=?, report_json=?,
+                changelog_summary=?, completed_at=?
+               WHERE id=?""",
             (health_score, vuln_count, critical_count, high_count,
              commit_sha, json.dumps(report), changelog_summary, _now(), scan_id),
         )
-        # Update repo's last_scan_at
-        scan = db.execute("SELECT repo_id FROM scans WHERE id = ?", (scan_id,)).fetchone()
+        scan = db.execute("SELECT repo_id FROM scans WHERE id=?", (scan_id,)).fetchone()
         if scan:
-            db.execute(
-                "UPDATE repos SET last_scan_at = ? WHERE id = ?",
-                (_now(), scan["repo_id"]),
-            )
+            db.execute("UPDATE repos SET last_scan_at=? WHERE id=?", (_now(), scan["repo_id"]))
 
 
 def get_scan(scan_id: str) -> dict | None:
-    """Get a single scan with its report."""
     with get_db() as db:
-        row = db.execute("SELECT * FROM scans WHERE id = ?", (scan_id,)).fetchone()
+        row = db.execute("SELECT * FROM scans WHERE id=?", (scan_id,)).fetchone()
         if not row:
             return None
         result = dict(row)
@@ -279,12 +288,11 @@ def get_scan(scan_id: str) -> dict | None:
 
 
 def get_scan_history(repo_id: str, limit: int = 20) -> list[dict]:
-    """Get scan history for a repo (without full reports)."""
     with get_db() as db:
         rows = db.execute(
             """SELECT id, health_score, vulnerabilities_count, critical_count,
                       commit_sha, scan_type, status, created_at, autofix_pr_url, changelog_summary
-               FROM scans WHERE repo_id = ? AND status = 'complete'
+               FROM scans WHERE repo_id=? AND status='complete'
                ORDER BY created_at DESC LIMIT ?""",
             (repo_id, limit),
         ).fetchall()
@@ -292,10 +300,9 @@ def get_scan_history(repo_id: str, limit: int = 20) -> list[dict]:
 
 
 def get_scan_by_commit(repo_id: str, commit_sha: str) -> dict | None:
-    """Check if we've already scanned this commit."""
     with get_db() as db:
         row = db.execute(
-            "SELECT * FROM scans WHERE repo_id = ? AND commit_sha = ? AND status = 'complete' LIMIT 1",
+            "SELECT * FROM scans WHERE repo_id=? AND commit_sha=? AND status='complete' LIMIT 1",
             (repo_id, commit_sha),
         ).fetchone()
         if not row:
@@ -311,31 +318,30 @@ def get_scan_by_commit(repo_id: str, commit_sha: str) -> dict | None:
 # ═══════════════════════════════════════════════
 
 def get_global_stats() -> dict:
-    """Get platform-wide stats for the landing page."""
+    """All stats in one connection, all aggregates in one pass where possible."""
     with get_db() as db:
-        total_scans = db.execute("SELECT COUNT(*) FROM scans WHERE status = 'complete'").fetchone()[0]
-        total_repos = db.execute("SELECT COUNT(DISTINCT repo_id) FROM scans").fetchone()[0]
-        total_vulns = db.execute(
-            "SELECT COALESCE(SUM(vulnerabilities_count), 0) FROM scans WHERE status = 'complete'"
-        ).fetchone()[0]
-        total_criticals = db.execute(
-            "SELECT COALESCE(SUM(critical_count), 0) FROM scans WHERE status = 'complete'"
-        ).fetchone()[0]
-        avg_score_row = db.execute(
-            "SELECT AVG(health_score) FROM scans WHERE status = 'complete' AND health_score IS NOT NULL"
-        ).fetchone()[0]
-        avg_score = round(avg_score_row) if avg_score_row is not None else None
+        row = db.execute(
+            """SELECT
+                COUNT(*)                                          AS total_scans,
+                COUNT(DISTINCT repo_id)                          AS total_repos,
+                COALESCE(SUM(vulnerabilities_count), 0)          AS total_vulnerabilities,
+                COALESCE(SUM(critical_count), 0)                 AS total_criticals,
+                ROUND(AVG(CASE WHEN health_score IS NOT NULL THEN health_score END)) AS avg_health_score
+               FROM scans WHERE status = 'complete'"""
+        ).fetchone()
+
+        total_repos = row["total_repos"] or 0
         repos_with_criticals = db.execute(
-            """SELECT COUNT(DISTINCT repo_id) FROM scans
-               WHERE status = 'complete' AND critical_count > 0"""
+            "SELECT COUNT(DISTINCT repo_id) FROM scans WHERE status='complete' AND critical_count > 0"
         ).fetchone()[0]
         pct_critical = round(repos_with_criticals / total_repos * 100) if total_repos > 0 else 0
+
         return {
-            "total_scans": total_scans,
+            "total_scans": row["total_scans"],
             "total_repos": total_repos,
-            "total_vulnerabilities": total_vulns,
-            "total_criticals": total_criticals,
-            "avg_health_score": avg_score,
+            "total_vulnerabilities": row["total_vulnerabilities"],
+            "total_criticals": row["total_criticals"],
+            "avg_health_score": int(row["avg_health_score"]) if row["avg_health_score"] is not None else None,
             "pct_repos_with_criticals": pct_critical,
         }
 
@@ -345,19 +351,12 @@ def get_global_stats() -> dict:
 # ═══════════════════════════════════════════════
 
 def update_scan_with_cached(scan_id: str, cached_scan: dict):
-    """Copy results from a previously cached scan (same commit SHA)."""
     with get_db() as db:
         db.execute(
             """UPDATE scans SET
-                status = 'complete',
-                health_score = ?,
-                vulnerabilities_count = ?,
-                critical_count = ?,
-                high_count = ?,
-                commit_sha = ?,
-                report_json = ?,
-                completed_at = ?
-            WHERE id = ?""",
+                status='complete', health_score=?, vulnerabilities_count=?,
+                critical_count=?, high_count=?, commit_sha=?, report_json=?, completed_at=?
+               WHERE id=?""",
             (
                 cached_scan.get("health_score"),
                 cached_scan.get("vulnerabilities_count", 0),
@@ -369,24 +368,18 @@ def update_scan_with_cached(scan_id: str, cached_scan: dict):
                 scan_id,
             ),
         )
-        # Update repo's last_scan_at
-        scan = db.execute("SELECT repo_id FROM scans WHERE id = ?", (scan_id,)).fetchone()
+        scan = db.execute("SELECT repo_id FROM scans WHERE id=?", (scan_id,)).fetchone()
         if scan:
-            db.execute(
-                "UPDATE repos SET last_scan_at = ? WHERE id = ?",
-                (_now(), scan["repo_id"]),
-            )
+            db.execute("UPDATE repos SET last_scan_at=? WHERE id=?", (_now(), scan["repo_id"]))
 
 
 def get_repo_id_for_scan(scan_id: str) -> str | None:
-    """Get the repo_id for a given scan."""
     with get_db() as db:
-        row = db.execute("SELECT repo_id FROM scans WHERE id = ?", (scan_id,)).fetchone()
+        row = db.execute("SELECT repo_id FROM scans WHERE id=?", (scan_id,)).fetchone()
         return row["repo_id"] if row else None
 
 
 def get_scan_owner_email(scan_id: str) -> tuple[str | None, str | None]:
-    """Return (user_email, repo_full_name) for the owner of a scan, or (None, None)."""
     with get_db() as db:
         row = db.execute(
             """SELECT u.email, r.full_name
@@ -400,3 +393,35 @@ def get_scan_owner_email(scan_id: str) -> tuple[str | None, str | None]:
             return None, None
         return row["email"], row["full_name"]
 
+
+# ═══════════════════════════════════════════════
+# MAINTENANCE
+# ═══════════════════════════════════════════════
+
+def cleanup_old_scans(keep_per_repo: int = 10) -> int:
+    """
+    Delete scan records beyond the most recent `keep_per_repo` per repo.
+    Frees disk space from report_json blobs. Returns number of rows deleted.
+    """
+    with get_db() as db:
+        deleted = db.execute(
+            """DELETE FROM scans WHERE id IN (
+                 SELECT id FROM (
+                   SELECT id,
+                          ROW_NUMBER() OVER (PARTITION BY repo_id ORDER BY created_at DESC) AS rn
+                   FROM scans
+                 ) WHERE rn > ?
+               )""",
+            (keep_per_repo,),
+        ).rowcount
+        if deleted:
+            db.execute("PRAGMA wal_checkpoint(PASSIVE)")
+        return deleted
+
+
+def run_maintenance() -> dict:
+    """Run periodic DB maintenance. Call from a scheduled task or startup."""
+    deleted = cleanup_old_scans(keep_per_repo=10)
+    with get_db() as db:
+        db.execute("PRAGMA wal_checkpoint(PASSIVE)")
+    return {"deleted_scans": deleted}

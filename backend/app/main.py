@@ -24,6 +24,25 @@ async def startup_event():
     from app.uptime_worker import start_uptime_worker
     start_uptime_worker()
 
+    # Reset any scans stuck in "processing" from a previous server run.
+    # These will never complete since their worker threads died with the process.
+    from app.database import get_db
+    with get_db() as db:
+        stuck = db.execute(
+            "SELECT COUNT(*) FROM scans WHERE status = 'processing'"
+        ).fetchone()[0]
+        if stuck:
+            db.execute(
+                "UPDATE scans SET status = 'error', error = 'Server restarted while scan was running. Please re-scan.' "
+                "WHERE status = 'processing'"
+            )
+            print(f"STARTUP: Reset {stuck} stuck scan(s) to error state.")
+
+    from app.database import run_maintenance
+    result = run_maintenance()
+    if result["deleted_scans"]:
+        print(f"STARTUP: Maintenance pruned {result['deleted_scans']} old scan(s).")
+
 _DEV_ORIGINS = ["http://localhost:3000", "http://127.0.0.1:3000"]
 _extra = [o.strip() for o in os.getenv("ALLOWED_ORIGINS", "").split(",") if o.strip()]
 _allowed_origins = list(dict.fromkeys(_DEV_ORIGINS + _extra))  # dedup, preserve order
