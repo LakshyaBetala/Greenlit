@@ -16,6 +16,7 @@ Routes:
   POST /api/repos/chat               → AI Sidekick chat
 """
 import re
+import httpx
 from fastapi import APIRouter, Header, HTTPException, Request
 from pydantic import BaseModel, field_validator
 from slowapi import Limiter
@@ -31,12 +32,34 @@ from app.services.chat_service import chat_with_codebase
 from app.database import (
     create_scan, get_scan, get_scan_history, get_scan_by_commit,
     track_repo, get_tracked_repos, get_repo_by_id, get_repo_by_url,
-    toggle_monitoring, untrack_repo, get_global_stats,
+    toggle_monitoring, untrack_repo, get_global_stats, upsert_user,
 )
 from app.queue import enqueue_scan, is_url_scanning
 from app.tasks import process_full_scan
 
 router = APIRouter()
+
+
+async def _verify_token(authorization: Optional[str]) -> dict:
+    """Verify a GitHub Bearer token and return the internal user record. Raises 401 if missing or invalid."""
+    if not authorization:
+        raise HTTPException(status_code=401, detail="Missing token")
+    token = authorization.replace("Bearer ", "")
+    async with httpx.AsyncClient(timeout=10.0) as client:
+        res = await client.get(
+            "https://api.github.com/user",
+            headers={"Authorization": f"Bearer {token}", "Accept": "application/vnd.github+json"},
+        )
+    if res.status_code != 200:
+        raise HTTPException(status_code=401, detail="Invalid token")
+    g = res.json()
+    return upsert_user(
+        github_id=g["id"],
+        login=g["login"],
+        name=g.get("name"),
+        avatar_url=g.get("avatar_url"),
+        email=g.get("email"),
+    )
 
 
 # ── Request Models ─────────────────────────────
@@ -175,30 +198,7 @@ async def platform_stats(request: Request):
 @router.get("/monitored")
 async def list_monitored_repos(authorization: str = Header(None)):
     """List all repos tracked by the authenticated user."""
-    if not authorization:
-        raise HTTPException(status_code=401, detail="Missing token")
-    token = authorization.replace("Bearer ", "")
-
-    # Get GitHub user info to find our user
-    import httpx
-    async with httpx.AsyncClient(timeout=10.0) as client:
-        res = await client.get(
-            "https://api.github.com/user",
-            headers={"Authorization": f"Bearer {token}", "Accept": "application/vnd.github+json"},
-        )
-    if res.status_code != 200:
-        raise HTTPException(status_code=401, detail="Invalid token")
-
-    github_user = res.json()
-    from app.database import upsert_user
-    user = upsert_user(
-        github_id=github_user["id"],
-        login=github_user["login"],
-        name=github_user.get("name"),
-        avatar_url=github_user.get("avatar_url"),
-        email=github_user.get("email"),
-    )
-
+    user = await _verify_token(authorization)
     repos = get_tracked_repos(user["id"])
     return repos
 
@@ -206,28 +206,7 @@ async def list_monitored_repos(authorization: str = Header(None)):
 @router.post("/track")
 async def track_repository(payload: TrackRepoRequest, authorization: str = Header(None)):
     """Add a repo to the authenticated user's tracked list."""
-    if not authorization:
-        raise HTTPException(status_code=401, detail="Missing token")
-    token = authorization.replace("Bearer ", "")
-
-    # Get user
-    import httpx
-    async with httpx.AsyncClient(timeout=10.0) as client:
-        res = await client.get(
-            "https://api.github.com/user",
-            headers={"Authorization": f"Bearer {token}", "Accept": "application/vnd.github+json"},
-        )
-    if res.status_code != 200:
-        raise HTTPException(status_code=401, detail="Invalid token")
-
-    github_user = res.json()
-    from app.database import upsert_user
-    user = upsert_user(
-        github_id=github_user["id"],
-        login=github_user["login"],
-        name=github_user.get("name"),
-        avatar_url=github_user.get("avatar_url"),
-    )
+    user = await _verify_token(authorization)
 
     url = payload.github_url.strip()
     parts = url.rstrip("/").split("/")
@@ -240,9 +219,13 @@ async def track_repository(payload: TrackRepoRequest, authorization: str = Heade
 
 @router.delete("/{repo_id}/track")
 async def untrack_repository(repo_id: str, authorization: str = Header(None)):
-    """Remove a repo from monitoring."""
-    if not authorization:
-        raise HTTPException(status_code=401, detail="Missing token")
+    """Remove a repo from monitoring — verifies ownership."""
+    user = await _verify_token(authorization)
+    repo = get_repo_by_id(repo_id)
+    if not repo:
+        raise HTTPException(status_code=404, detail="Repo not found")
+    if repo["user_id"] != user["id"] and repo["user_id"] != "anonymous":
+        raise HTTPException(status_code=403, detail="Not your repo")
     untrack_repo(repo_id)
     return {"status": "removed"}
 
@@ -253,22 +236,26 @@ class MonitoringToggleRequest(BaseModel):
 
 @router.patch("/{repo_id}/monitoring")
 async def toggle_repo_monitoring(repo_id: str, payload: MonitoringToggleRequest, authorization: str = Header(None)):
-    """Enable or disable continuous monitoring for a tracked repo."""
-    if not authorization:
-        raise HTTPException(status_code=401, detail="Missing token")
+    """Enable or disable continuous monitoring — verifies ownership."""
+    user = await _verify_token(authorization)
     repo = get_repo_by_id(repo_id)
     if not repo:
         raise HTTPException(status_code=404, detail="Repo not found")
+    if repo["user_id"] != user["id"] and repo["user_id"] != "anonymous":
+        raise HTTPException(status_code=403, detail="Not your repo")
     toggle_monitoring(repo_id, payload.enabled)
     return {"status": "ok", "is_monitoring": payload.enabled}
 
 
 @router.post("/{repo_id}/scan")
-async def trigger_scan(repo_id: str):
-    """Manually trigger a new scan for a tracked repo."""
+async def trigger_scan(repo_id: str, authorization: str = Header(None)):
+    """Manually trigger a new scan — verifies ownership."""
+    user = await _verify_token(authorization)
     repo = get_repo_by_id(repo_id)
     if not repo:
         raise HTTPException(status_code=404, detail="Repo not found")
+    if repo["user_id"] != user["id"] and repo["user_id"] != "anonymous":
+        raise HTTPException(status_code=403, detail="Not your repo")
 
     # Check if already scanning
     existing = is_url_scanning(repo["github_url"])

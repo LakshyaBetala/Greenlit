@@ -1,6 +1,11 @@
 import type { NextConfig } from "next";
 import path from "path";
 
+const apiUrl = process.env.NEXT_PUBLIC_API_URL || "";
+const extraConnectSrc = apiUrl && !apiUrl.includes("localhost") && !apiUrl.includes("127.0.0.1")
+  ? ` ${apiUrl}`
+  : "";
+
 const securityHeaders = [
   { key: "X-DNS-Prefetch-Control", value: "on" },
   { key: "X-Frame-Options", value: "SAMEORIGIN" },
@@ -14,7 +19,7 @@ const securityHeaders = [
       "script-src 'self' 'unsafe-inline' 'unsafe-eval' https://checkout.razorpay.com",
       "style-src 'self' 'unsafe-inline'",
       "img-src 'self' data: https://avatars.githubusercontent.com",
-      "connect-src 'self' https://api.github.com http://localhost:8000 http://127.0.0.1:8000 https://*.vercel.app",
+      `connect-src 'self' https://api.github.com http://localhost:8000 http://127.0.0.1:8000 https://*.vercel.app https://*.onrender.com${extraConnectSrc}`,
       "frame-src https://checkout.razorpay.com https://js.stripe.com",
       "font-src 'self'",
     ].join("; "),

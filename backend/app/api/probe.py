@@ -75,7 +75,10 @@ async def get_probe(probe_id: str):
 
     result = dict(row)
     if result.get("result_json"):
-        result["result"] = json.loads(result["result_json"])
+        try:
+            result["result"] = json.loads(result["result_json"])
+        except json.JSONDecodeError:
+            result["result"] = None
         del result["result_json"]
     else:
         result["result"] = None

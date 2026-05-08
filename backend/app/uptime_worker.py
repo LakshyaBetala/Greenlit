@@ -1,6 +1,6 @@
 import asyncio
 import httpx
-from datetime import datetime
+from datetime import datetime, timezone
 from app.database import get_db
 
 async def ping_production_urls():
@@ -33,7 +33,7 @@ async def ping_production_urls():
                     with get_db() as db:
                         db.execute(
                             "UPDATE repos SET last_uptime_status = ? WHERE id = ?",
-                            (f"{status}:{datetime.utcnow().isoformat()}", repo_id)
+                            (f"{status}:{datetime.now(timezone.utc).isoformat()}", repo_id)
                         )
                         
         except Exception as e:
