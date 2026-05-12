@@ -123,12 +123,18 @@ def update_user_plan(
 # REPO OPERATIONS
 # ═══════════════════════════════════════════════
 
-def track_repo(user_id: str, github_url: str, name: str, full_name: str) -> dict:
+def track_repo(user_id: str | None, github_url: str, name: str, full_name: str) -> dict:
     with get_db() as db:
-        existing = db.execute(
-            "SELECT * FROM repos WHERE user_id = ? AND github_url = ?",
-            (user_id, github_url),
-        ).fetchone()
+        if user_id is None:
+            existing = db.execute(
+                "SELECT * FROM repos WHERE user_id IS NULL AND github_url = ?",
+                (github_url,),
+            ).fetchone()
+        else:
+            existing = db.execute(
+                "SELECT * FROM repos WHERE user_id = ? AND github_url = ?",
+                (user_id, github_url),
+            ).fetchone()
         if existing:
             return dict(existing)
 

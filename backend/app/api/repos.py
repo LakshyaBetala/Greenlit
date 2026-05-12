@@ -129,7 +129,7 @@ async def analyze_from_url(request: Request, payload: AnalyzeUrlRequest):
         name = parts[-1] if parts else "unknown"
         full_name = "/".join(parts[-2:]) if len(parts) >= 2 else name
         repo = track_repo(
-            user_id="anonymous",
+            user_id=None,
             github_url=url,
             name=name.replace(".git", ""),
             full_name=full_name.replace(".git", ""),
