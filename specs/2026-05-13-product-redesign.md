@@ -150,6 +150,19 @@ Proof captured 2026-05-13 at 14:32 UTC
 - **First-person plural ("we") for Greenlit.** Founder is "you." Never use "the user."
 - **Calm, factual, inevitable. NOT cinematic / hacker-themed.** The best security tools feel like an X-ray, not a horror film. No skull icons, no fake-terminal aesthetics beyond Zone 3 evidence, no "h4ck3r" vibes, no animated glitch effects. We are the calm CTO, not the dramatic pentester. If a screenshot of our verdict looks like a fake-news graphic, we've gone too far. Test: would Stripe ship this tone? If no, retune.
 
+#### The 10 no-AI-slop rules (enforced on every shipped UI surface)
+
+1. **No gradient backgrounds where solid color works.** The verdict cinema's subtle red/amber/green tint is the only exception. Nothing else gets gradients.
+2. **Zero emoji in product copy.** Ever. One 🚀 makes us look like a hackathon project. Headlines, buttons, alerts, errors — all emoji-free.
+3. **No glow, no neon, no synthwave aesthetics.** Visual restatement of the calm-CTO rule above.
+4. **System fonts only.** Inter, SF Pro, Geist, system-ui. No display fonts, no AI-generated cursive, no Google Fonts that scream "vibe coder."
+5. **Tables for data, never pill clouds.** Vulnerability lists, tech stack, pricing comparison — all tables. Pills only for status (severity badges, verdict pill).
+6. **One primary CTA per screen.** No decision soup. Secondary actions are text links, not buttons.
+7. **Concrete numbers, never vague claims.** Never "fast" — say "60 seconds." Never "secure" — say "14 attacks against your live URL." Never "many users" — say "1,247 apps."
+8. **No fabricated testimonials in v1.** We don't have real ones yet. An empty testimonial section is better than fake quotes. Add testimonials only when real customers approve them in writing.
+9. **Loading states show what's running**, never a generic spinner. The 5-step `ScanProgress` is the template — every other long operation must follow this pattern.
+10. **Empty states have real next-action text**, not placeholder lorem. "Paste a GitHub URL to start your first scan" — not "Get started!" or 🚀.
+
 ### 2.6 Loading state (the 60-second wait)
 
 Today: spinner + "analyzing." Boring. Users bail.
@@ -294,10 +307,11 @@ If a gate fails, stay in the current phase and diagnose. **Never skip phases to 
 
 ### 4.3 Unit economics
 
-- Cost per acquisition: 1 Sonnet pre-screen ($0.15) + 1 Haiku verification ($0.005) + GitHub API (free) ≈ **$0.20**.
-- If 1 in 50 founders converts to Solo $7/mo, that's $7 first-month revenue per $10 acquisition cost.
-- At 6-month retention average: LTV $42, CAC $10, **LTV/CAC = 4.2**. Healthy.
-- Cap monthly bot budget at $500 → 2,500 outreach PRs → at 2% conversion = 50 paid users/month from bot alone.
+- Cost per acquisition (standard, no batch): 1 Sonnet pre-screen ($0.075) + 1 Haiku verification ($0.005) + GitHub API (free) ≈ **$0.08**.
+- Cost per acquisition (with batch — Bot is 100% async background, perfect fit): **~$0.04**.
+- If 1 in 50 founders converts to Solo $7/mo, that's $7 first-month revenue per ~$2 acquisition cost on the batch path.
+- At 6-month retention average: LTV $42, CAC $2, **LTV/CAC ≈ 21**. Very healthy.
+- Cap monthly Bot budget at $500 → ~12,500 outreach PRs (batch path) → at 2% conversion ≈ **250 paid users/month from Bot alone**.
 
 ### 4.4 First-launch plan
 
@@ -311,12 +325,14 @@ If a gate fails, stay in the current phase and diagnose. **Never skip phases to 
 
 ### 5.1 Tier structure
 
-| Tier | Price (USD) | Price (INR) | What you get |
-|---|---|---|---|
-| **Free** | $0 | ₹0 | 1 deep scan/month on a public repo. Verdict + top 3 breaches. 1 on-demand auto-fix per scan (you click, we open PR). Share badge + public report. |
-| **Solo** | **$7/mo** | **₹299/mo** | Unlimited public scans. 1 private repo. Continuous monitoring (DAST every 6h). Email alerts. Unlimited on-demand auto-fixes (you click, we open PR). Copy-to-Cursor prompts. |
-| **Indie** | **$29/mo** | **₹999/mo** | 10 private repos. **Automatic auto-fix on every push** (no clicks needed — Greenlit opens PRs as breaches appear). Webhook monitoring. Slack/Discord alerts. Priority Sonnet 4.6 deep scans. Team seats: 3. |
-| **One-time scan** | **$5** | **₹399** | Single deep audit + downloadable PDF + 30-day result access + 1 on-demand auto-fix. Use case: "founder about to launch, will not subscribe." |
+| Tier | Standard | India | Emerging | What you get |
+|---|---|---|---|---|
+| **Free** | $0 | ₹0 | $0 | 10 deep scans/mo on public repos (3/day hard cap). Verdict + **top 5 vulns visible** (rest behind paywall). 1 DAST probe per scan. 1 on-demand auto-fix per scan. Share badge + public report. Same-URL re-scan returns the cached result instantly (24h cooldown — does not burn quota). |
+| **Solo** | **$7/mo** | **₹299/mo** | **$5/mo** | 50 deep scans/mo (10/day cap). All vulns visible. Unlimited DAST probes. 1 private repo. Continuous monitoring (every 6h). Email alerts. Unlimited on-demand auto-fixes. Copy-to-Cursor prompts. |
+| **Indie** | **$29/mo** | **₹999/mo** | **$19/mo** | 300 deep scans/mo (no daily cap). 10 private repos. **Automatic auto-fix on every push** (no clicks — Greenlit opens PRs as breaches appear). Webhook + hourly monitoring. Slack/Discord alerts. Priority Sonnet 4.6 queue. 3 team seats. Read-only API access. |
+| **One-time scan** | **$5** | **₹399** | **$3** | Single deep audit + downloadable PDF + 30-day result access + 1 on-demand auto-fix. Use case: "founder about to launch, will not subscribe." |
+
+See §5.4 for geo-band assignment logic and §5.6 for the full rate-limit matrix.
 
 **Auto-fix tier semantics (concrete):**
 - **Free / one-time:** 1 click → 1 PR per scan. Capped.
@@ -337,9 +353,28 @@ If a gate fails, stay in the current phase and diagnose. **Never skip phases to 
 - Free user CAN share the report publicly — this is the viral loop, do not gate it.
 - Free user CANNOT enable continuous monitoring or webhook scans — this is the Solo upgrade.
 
-### 5.4 Geo routing
+### 5.4 Geo pricing — three bands by IP
 
-Keep existing logic: `CF-IPCountry` header → India → Razorpay (₹). Else → Stripe (USD). Existing `app/api/payments.py` already supports this.
+Country detected from the `CF-IPCountry` request header (free, populated automatically when behind Cloudflare proxy). Fallback to `X-Country` header for non-CF deploys. Default to "Standard" when neither is set (defensively avoid accidental discounts on misconfigured deploys).
+
+**Band assignment:**
+
+| Band | Countries | Why |
+|---|---|---|
+| **Standard** | US, CA, GB, IE, AU, NZ, JP, SG, HK, CH, IL, AE, EU-27 | High-GDP markets willing and able to pay $7–29 |
+| **India** | IN only | Distinct payment infrastructure (Razorpay/UPI), large enough TAM to deserve its own price point |
+| **Emerging** | every other ISO country code | Flat 30% discount band — captures price-sensitive markets (BR, MX, ZA, PH, ID, TR, NG, VN, EG, etc.) without maintaining 50 separate currency price lists |
+
+**Payment routing:**
+- `India` → Razorpay subscription in INR. Existing `app/api/payments.py` flow.
+- `Standard` + `Emerging` → Stripe Checkout in USD. Separate Stripe price IDs per band (e.g. `STRIPE_PRICE_SOLO_STANDARD_USD` and `STRIPE_PRICE_SOLO_EMERGING_USD`). Stripe handles local payment methods (UPI, OXXO, iDEAL, etc.) automatically inside each Checkout Session — no extra integration needed.
+
+**Why three not fifty:** 90% of conversion comes from Standard or India. Emerging is one flat tier — a 30% discount on top of Standard — and Stripe's localized payment methods do the heavy lifting for the actual currency UX. Maintaining one Emerging price line beats maintaining 50 country-specific ones.
+
+**Detection failure cases:**
+- Header missing → Standard (avoid accidentally discounting US/EU traffic).
+- Behind Cloudflare → `CF-IPCountry` is set automatically.
+- Direct deploy without CF → set `X-Country` from your edge/CDN, or users get Standard pricing by default.
 
 ### 5.5 Pricing page UX
 
@@ -348,6 +383,38 @@ Keep existing logic: `CF-IPCountry` header → India → Razorpay (₹). Else �
 - Below tier cards: 4-row comparison table.
 - Below comparison: 3 testimonials (start with 1 real + 2 placeholders flagged for replacement post-launch).
 - Bottom: FAQ. Last FAQ is "What if I just want one scan?" → leads to the $5 one-time.
+
+### 5.6 Rate-limit matrix (the conversion gate)
+
+| Limit | **Free** | **Solo** | **Indie** |
+|---|---|---|---|
+| Deep scans per month | **10** | 50 | 300 |
+| Deep scans per day cap | 3 | 10 | none |
+| Same-URL re-scan cooldown | 24h (cached) | 1h | none |
+| DAST live probe runs per scan | 1 | unlimited | unlimited |
+| Continuous monitoring | ❌ | ✅ every 6h, 1 repo | ✅ every push + hourly, all repos |
+| Private repos | ❌ | 1 | 10 |
+| On-demand auto-fix | 1/scan | unlimited | unlimited |
+| Automatic auto-fix on push | ❌ | ❌ | ✅ |
+| Vulnerabilities shown in result | top 5 only | all | all |
+| Email alerts | ❌ | ✅ | ✅ |
+| Slack/Discord alerts | ❌ | ❌ | ✅ |
+| Read-only API access | ❌ | ❌ | ✅ |
+
+**Free-tier rationale — the conversion design:**
+
+- **10 scans/mo, not 1.** The "1 scan/month" trap kills the funnel. Founder scans their app, sees value, can't test a friend's app or re-scan after a fix, forgets us. 10 scans = ~$0.75/month worst-case acquisition cost per heavy free user. Affordable for what could become a $7+/mo conversion.
+- **3 per day hard cap** prevents abuse — scripted scanning of 100 random repos is the failure mode.
+- **Same-URL 24h cooldown** is silent-good UX: rescanning the same repo doesn't burn quota AND returns the cached result instantly. Better feel.
+- **Top 5 vulns visible** is the paywall gate: founder sees enough findings to believe the product is real, then hits a clearly-counted lock on vuln #6+ — *"`8 more vulnerabilities found — unlock for $7/mo or pay $5 once`."* This is the exact conversion moment.
+- **1 free DAST probe per scan is non-negotiable.** The DAST live probe IS our differentiator from Rismon and Rafter; if free users never experience it, they don't understand why we're different and they don't convert.
+
+**Anti-abuse enforcement (Sprint 7 implementation):**
+
+- Rate limit by `(IP, user_id, repo_url)` — caps both anonymous and authenticated paths.
+- Same-URL cache-hit returns the existing scan_id (no new resource consumed).
+- Daily cap is the brake against scripted abuse; monthly cap is the conversion driver.
+- Layer enforced in `app/api/repos.py` via slowapi (already installed) + a new `app/services/quota.py` for per-user tier-aware checks.
 
 ---
 
@@ -362,7 +429,37 @@ Keep existing logic: `CF-IPCountry` header → India → Razorpay (₹). Else �
 | **Bot pre-screen** (rapid yes/no on whether a public repo has a critical vuln) | **Haiku 4.5** | Cheap + decisive | n/a (new) |
 | **Fallback chain** (if all Claude APIs fail) | Gemini Flash → Flash-Lite → 2.0-Flash → 2.0-Flash-Lite → 1.5-Flash → 1.5-Flash-8B | Never crash on quota exhaustion | unchanged |
 
-Implementation: introduce `app/services/llm_router.py` that handles model selection + fallback. All services (`rag_service`, `dast_service`, `autofix_service`) call into the router, never instantiate clients directly.
+Implementation: introduce `app/services/llm_router.py` that handles model selection + fallback. All services (`rag_service`, `dast_service`, `autofix_service`) call into the router, never instantiate clients directly. *(Status: shipped in commit `da13b9a`.)*
+
+**Per-scan cost (Sonnet 4.6 deep scan, real measured numbers — not the earlier $0.15 estimate):**
+
+| Mode | Input ~10K tokens | Output ~3K tokens | Total per scan |
+|---|---|---|---|
+| **Standard** | $0.030 | $0.045 | **$0.075** |
+| **+ prompt cache** (repeat scans of same repo) | $0.027 | $0.045 | **$0.072** |
+| **+ batch** (async work only — monitoring, Bot) | $0.015 | $0.0225 | **$0.038** |
+| **batch + cache** | $0.014 | $0.0225 | **$0.036** |
+
+User-facing deep scans stay synchronous → ~$0.075 each. Background monitoring + Bot pre-screens use batch → ~$0.04 each. Cost cap per scan = **$0.12 worst case** (bounded by §6.1a token caps).
+
+Monitoring ticks (Haiku 4.5, ~5K in + 1K out): $0.010 standard, **$0.003 batch+cache.**
+
+### 6.1a Token budget caps per tier
+
+Hard ceilings prevent runaway cost from unusual or adversarial repos. Caps enforced at retrieval time (cap top-k chunks before constructing the prompt) — the model never sees more than the cap.
+
+| Tier | Max input tokens / scan | Max output tokens / scan | Max scan cost |
+|---|---|---|---|
+| **Free** | 12,000 | 4,000 | **$0.10** |
+| **Solo** | 20,000 | 6,000 | **$0.15** |
+| **Indie** | 40,000 | 8,000 | **$0.24** |
+
+Why caps differ by tier:
+- Solo users pay $7/mo for sharper findings → larger retrieval window → better signal on big repos.
+- Indie users pay $29/mo for the sharpest analysis → highest cap.
+- Free tier still adequate for typical AI-built apps (5–30K LoC ≈ 25–150K raw tokens, retrieval brings it under 12K easily).
+
+Implementation: add `MAX_INPUT_TOKENS_PER_TIER` and `MAX_OUTPUT_TOKENS_PER_TIER` constants in `app/config.py`. `rag_service.py` reads the user's tier and slices retrieved chunks accordingly before constructing the prompt. Tier-unknown (anonymous) gets the Free cap.
 
 **Headline prompt (the one that fixes "generic output"):**
 
@@ -432,6 +529,41 @@ Add columns/tables:
 - `repos.opt_out_bot BOOLEAN` — for Greenlit Bot opt-out.
 - New table `alerts` (id, scan_id, repo_id, severity, delivered_to, delivered_at, dedup_hash).
 - New table `bot_outreach` (id, repo_url, pr_url, pr_state, scanned_at, opened_at, closed_at, founder_clicked_at).
+
+### 6.6 Anthropic rate-limit architecture (two-layer)
+
+**Layer 1 — per-user limits (FastAPI level, slowapi):**
+
+| Path | Limit |
+|---|---|
+| Anonymous scan requests | 10/min/IP |
+| Free authenticated | 30/min |
+| Solo authenticated | 60/min |
+| Indie authenticated | no cap |
+
+**Layer 2 — per-Anthropic-org limits (`llm_router.py` token bucket):**
+
+Anthropic enforces per-org tokens-per-minute (TPM) and requests-per-minute (RPM) caps based on the org's tier:
+
+| Anthropic tier | Deposit required | Sonnet in/out TPM | Sonnet RPM | Comfortable user load |
+|---|---|---|---|---|
+| Tier 1 (default) | $0 | 50K / 10K | 50 | ~10 active users |
+| **Tier 2** | **$40** | 200K / 40K | 1,000 | ~100 active users |
+| Tier 3 | $200 | 1M / 200K | 4,000 | ~1,000 active users |
+| Tier 4 | $400 | 2M / 400K | 4,000 | ~5,000 active users |
+
+**Recommendation: deposit $40 before public launch to start at Tier 2.** Negligible cost; removes the most likely day-one outage when traffic spikes.
+
+**Token-bucket implementation (Sprint 7):**
+
+Inside `llm_router.py`:
+
+- Track consumed TPM (input + output separately) and RPM in a sliding 60s window.
+- Size the bucket at **80% of the published cap** to leave headroom for spikes (160K input TPM at Tier 2, not 200K).
+- When a request would exceed the bucket: queue with FIFO ordering, retry once headroom appears.
+- On Anthropic 429 (despite our local limiter): exponential backoff (3s, 9s, 27s), then fall through to the Gemini chain (existing behavior).
+
+**Per-tier priority queue (Sprint 7 nice-to-have):** Indie scans get bucket priority over Solo, Solo over Free. Implemented as separate FIFO queues drained in priority order when bucket headroom is available.
 
 ---
 
