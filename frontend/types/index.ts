@@ -91,6 +91,8 @@ export interface Improvement {
   effort: string;
 }
 
+export type VerdictStatus = "do_not_ship" | "ship_with_caution" | "ready_to_ship";
+
 export interface AnalysisReport {
   scan_id?: string;
   repo_id?: string;
@@ -106,6 +108,10 @@ export interface AnalysisReport {
   broken_links: BrokenLink[];
   improvements: Improvement[];
   platform_detected?: string | null;
+  // v2 verdict fields (see specs/2026-05-13-product-redesign.md §2.2)
+  verdict_headline?: string;
+  verdict_subhead?: string;
+  verdict_status?: VerdictStatus;
 }
 
 // ── Monitoring Types ──────────────────────────

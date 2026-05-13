@@ -10,6 +10,8 @@ import MermaidDiagram from "@/components/MermaidDiagram";
 import ShareModal from "@/components/ShareModal";
 import ActivityTimeline from "@/components/ActivityTimeline";
 import BenchmarkMetrics from "@/components/BenchmarkMetrics";
+import VerdictCinema from "@/components/VerdictCinema";
+import ScanProgress from "@/components/ScanProgress";
 import {
   Shield, ArrowRight, RotateCcw, AlertTriangle,
   Network, Layers, Cable, Workflow, BookOpen, Bug, LinkIcon, Lightbulb,
@@ -390,55 +392,13 @@ Please:
     dividerH: { height: "1px", background: "var(--border-subtle)" },
   };
 
-  // ── LOADING STATE ──
+  // ── LOADING STATE — v2: 5-step animated reveal (spec §2.6) ──
   if (status === "loading") {
     return (
       <div style={S.page}>
         <Navbar />
-        <main style={{ flex: 1, display: "flex", alignItems: "center", justifyContent: "center", padding: "0 1.5rem" }}>
-          <div className="text-center animate-in">
-            <div style={{ marginBottom: "2rem" }}>
-              <div
-                className="loading-dot"
-                style={{
-                  width: "16px", height: "16px", borderRadius: "50%",
-                  background: "var(--green)", margin: "0 auto 1.5rem",
-                }}
-              />
-              <h2 className="text-headline" style={{ fontSize: "1.5rem", marginBottom: "0.75rem" }}>
-                Analyzing Repository
-              </h2>
-              <p
-                className="text-code"
-                style={{
-                  background: "var(--surface-elevated)",
-                  border: "1px solid var(--border-subtle)",
-                  borderRadius: "5px",
-                  padding: "2px 10px",
-                  display: "inline-block",
-                  color: "var(--text-secondary)",
-                  marginBottom: "1rem",
-                  fontSize: "0.8125rem",
-                }}
-              >
-                {repoName}
-              </p>
-              <p style={{ color: "var(--text-secondary)", fontSize: "0.875rem" }}>{progress}</p>
-            </div>
-            <div style={{ maxWidth: "280px", margin: "0 auto" }}>
-              <div style={{ height: "3px", borderRadius: "99px", overflow: "hidden", background: "var(--surface-elevated)" }}>
-                <div style={{
-                  height: "100%",
-                  borderRadius: "99px",
-                  background: "var(--green)",
-                  width: "60%",
-                  animation: "shimmer 2s infinite",
-                  backgroundImage: `linear-gradient(90deg, var(--green) 25%, #4ade80 50%, var(--green) 75%)`,
-                  backgroundSize: "200% 100%",
-                }} />
-              </div>
-            </div>
-          </div>
+        <main style={{ flex: 1, display: "flex", alignItems: "center", justifyContent: "center", padding: "4rem 1.5rem" }}>
+          <ScanProgress repoLabel={repoName} />
         </main>
       </div>
     );
@@ -479,8 +439,24 @@ Please:
       <Navbar />
 
       <main style={{ flex: 1, paddingTop: "64px" }}>
+        {/* ── Zone 1: Verdict Cinema (v2 — spec §2.2) ── */}
+        {report && (
+          <VerdictCinema
+            report={report}
+            onShowBreach={() => {
+              setActiveTab("vulnerabilities");
+              setTimeout(() => {
+                document.querySelector('[data-section="vulnerabilities"]')?.scrollIntoView({ behavior: "smooth", block: "start" });
+              }, 80);
+            }}
+            onViewFullReport={() => {
+              document.querySelector('[data-section="summary-strip"]')?.scrollIntoView({ behavior: "smooth", block: "start" });
+            }}
+          />
+        )}
+
         {/* ── Summary Strip ── */}
-        <div className="animate-in stagger-1" style={S.summaryStrip}>
+        <div data-section="summary-strip" className="animate-in stagger-1" style={S.summaryStrip}>
           <div style={{ maxWidth: "80rem", margin: "0 auto", padding: "2rem 1.5rem" }}>
             <div style={{ display: "flex", flexWrap: "wrap", alignItems: "center", justifyContent: "space-between", gap: "1.5rem" }}>
               {/* Left: Score + Repo */}
