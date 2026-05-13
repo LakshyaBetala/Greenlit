@@ -262,19 +262,54 @@ Please:
     };
   };
 
-  const tabs: { id: AnalysisTab; label: string; icon: React.ComponentType<{ style?: React.CSSProperties }> }[] = [
-    { id: "timeline", label: "Roadmap", icon: History },
-    { id: "architecture", label: "Architecture", icon: Network },
-    { id: "tech-stack", label: "Tech Stack", icon: Layers },
-    { id: "connections", label: "Connections", icon: Cable },
-    { id: "data-flow", label: "Data Flow", icon: Workflow },
-    { id: "explained", label: "Explained", icon: BookOpen },
-    { id: "vulnerabilities", label: "Vulnerabilities", icon: Bug },
-    { id: "broken-links", label: "Broken Links", icon: LinkIcon },
-    { id: "improvements", label: "Improvements", icon: Lightbulb },
-    { id: "probe", label: "Probe Live App", icon: Zap },
-    { id: "deploy", label: "Deploy Guide", icon: Rocket },
+  // 4-group information architecture (spec §2.3). 11 tabs collapsed
+  // into 4 mental categories. Each group has a default sub-tab.
+  const TAB_GROUPS: {
+    id: string;
+    label: string;
+    defaultSub: AnalysisTab;
+    tabs: { id: AnalysisTab; label: string }[];
+  }[] = [
+    {
+      id: "breaches",
+      label: "Breaches",
+      defaultSub: "vulnerabilities",
+      tabs: [
+        { id: "vulnerabilities", label: "Vulnerabilities" },
+        { id: "broken-links", label: "Broken Links" },
+        { id: "improvements", label: "Improvements" },
+      ],
+    },
+    {
+      id: "about",
+      label: "About your app",
+      defaultSub: "architecture",
+      tabs: [
+        { id: "architecture", label: "Architecture" },
+        { id: "tech-stack", label: "Tech Stack" },
+        { id: "connections", label: "Connections" },
+        { id: "data-flow", label: "Data Flow" },
+        { id: "explained", label: "Plain English" },
+      ],
+    },
+    {
+      id: "action",
+      label: "Take action",
+      defaultSub: "probe",
+      tabs: [
+        { id: "probe", label: "Live Probe" },
+        { id: "deploy", label: "Deploy Guide" },
+      ],
+    },
+    {
+      id: "history",
+      label: "History",
+      defaultSub: "timeline",
+      tabs: [{ id: "timeline", label: "Timeline" }],
+    },
   ];
+
+  const currentGroup = TAB_GROUPS.find((g) => g.tabs.some((t) => t.id === activeTab)) ?? TAB_GROUPS[0];
 
   const handleAutofix = async () => {
     const isBuilder = userPlan === "builder";
@@ -546,47 +581,48 @@ Please:
           </div>
         </div>
 
-        {/* ── Tab Bar ── */}
+        {/* ── Tab Bar — 4-group nav with per-group sub-tabs (spec §2.3) ── */}
         <div className="animate-in stagger-2" style={S.tabBar}>
           <div style={{ maxWidth: "80rem", margin: "0 auto", padding: "0 1.5rem" }}>
-            <div style={{ display: "flex", gap: "0", overflowX: "auto" }}>
-              {tabs.map((tab) => {
-                const isActive = activeTab === tab.id;
+            {/* Primary nav: 4 mental categories */}
+            <div style={{ display: "flex", gap: 0, overflowX: "auto" }}>
+              {TAB_GROUPS.map((group) => {
+                const isActive = currentGroup.id === group.id;
+                const showBadge = group.id === "breaches" && (report?.vulnerabilities?.length ?? 0) > 0;
                 return (
                   <button
-                    key={tab.id}
-                    onClick={() => setActiveTab(tab.id)}
-                    id={`tab-${tab.id}`}
+                    key={group.id}
+                    onClick={() => setActiveTab(group.defaultSub)}
                     style={{
-                      padding: "1rem 4px",
-                      marginRight: "1.25rem",
+                      padding: "1.1rem 0",
+                      marginRight: "2.25rem",
                       fontWeight: 500,
-                      fontSize: "0.875rem",
-                      transition: "all 0.15s",
+                      fontSize: "0.95rem",
+                      transition: "color 150ms ease, border-color 150ms ease",
                       whiteSpace: "nowrap" as const,
                       background: "transparent",
                       border: "none",
                       borderBottom: `2px solid ${isActive ? "var(--green)" : "transparent"}`,
-                      color: isActive ? "var(--green)" : "var(--text-secondary)",
+                      color: isActive ? "var(--text-primary, #eee)" : "var(--text-secondary)",
                       cursor: "pointer",
-                      display: "flex",
+                      display: "inline-flex",
                       alignItems: "center",
-                      gap: "6px",
+                      gap: "8px",
+                      letterSpacing: "-0.005em",
                     }}
                   >
-                    <tab.icon style={{ width: "14px", height: "14px", color: isActive ? "var(--green)" : "var(--text-tertiary)" }} />
-                    {tab.label}
-                    {tab.id === "vulnerabilities" && (report?.vulnerabilities?.length ?? 0) > 0 && (
+                    {group.label}
+                    {showBadge && (
                       <span style={{
-                        display: "inline-flex", alignItems: "center",
+                        display: "inline-flex",
+                        alignItems: "center",
                         padding: "1px 7px",
                         borderRadius: "999px",
-                        fontSize: "0.6875rem",
-                        fontWeight: 700,
-                        background: "rgba(239,68,68,0.1)",
+                        fontSize: "0.68rem",
+                        fontWeight: 600,
+                        background: "rgba(239,68,68,0.10)",
                         color: "#f87171",
-                        border: "1px solid rgba(239,68,68,0.2)",
-                        marginLeft: "2px",
+                        fontVariantNumeric: "tabular-nums",
                       }}>
                         {report!.vulnerabilities!.length}
                       </span>
@@ -595,6 +631,42 @@ Please:
                 );
               })}
             </div>
+
+            {/* Sub-tab nav: only shown when current group has multiple sub-tabs */}
+            {currentGroup.tabs.length > 1 && (
+              <div
+                style={{
+                  display: "flex",
+                  gap: "1.5rem",
+                  padding: "0.625rem 0 0.875rem",
+                  overflowX: "auto",
+                  borderTop: "1px solid var(--border-subtle)",
+                }}
+              >
+                {currentGroup.tabs.map((subTab) => {
+                  const isActive = activeTab === subTab.id;
+                  return (
+                    <button
+                      key={subTab.id}
+                      onClick={() => setActiveTab(subTab.id)}
+                      style={{
+                        padding: "2px 0",
+                        fontSize: "0.8rem",
+                        fontWeight: isActive ? 500 : 400,
+                        background: "transparent",
+                        border: "none",
+                        color: isActive ? "var(--green)" : "var(--text-tertiary, #666)",
+                        cursor: "pointer",
+                        whiteSpace: "nowrap" as const,
+                        transition: "color 120ms ease",
+                      }}
+                    >
+                      {subTab.label}
+                    </button>
+                  );
+                })}
+              </div>
+            )}
           </div>
         </div>
 
@@ -605,7 +677,7 @@ Please:
           {activeTab === "architecture" && (
             <div className="animate-in">
               <h2 className="text-headline" style={{ fontSize: "1.25rem", marginBottom: "0.5rem" }}>
-                {explainMode === "simple" ? "🏗️ What you built (in plain English)" : "Architecture Diagram"}
+                {explainMode === "simple" ? "What you built (in plain English)" : "Architecture Diagram"}
               </h2>
               <p style={{ marginBottom: "1.5rem", color: "var(--text-secondary)", fontSize: "0.875rem" }}>
                 {explainMode === "simple"
@@ -617,9 +689,8 @@ Please:
                   <div style={{ display: "flex", flexDirection: "column", gap: "1rem" }}>
                     {report.tech_stack.some(t => t.name.toLowerCase().includes("next") || t.name.toLowerCase().includes("react")) && (
                       <div>
-                        <div style={{ display: "flex", alignItems: "center", gap: "8px", marginBottom: "4px" }}>
-                          <span style={{ fontSize: "1.25rem" }}>🍽️</span>
-                          <span style={{ fontWeight: 600, color: "var(--text-primary)" }}>THE MENU (Frontend)</span>
+                        <div style={{ marginBottom: "4px" }}>
+                          <span style={{ fontWeight: 600, color: "var(--text-primary)", fontSize: "0.75rem", letterSpacing: "0.08em" }}>THE MENU (Frontend)</span>
                         </div>
                         <p style={{ color: "var(--text-secondary)", fontSize: "0.8125rem", lineHeight: 1.6, paddingLeft: "2rem" }}>
                           This is what your customers see — buttons, pages, forms. Like the menu at a restaurant that customers browse.
@@ -628,9 +699,8 @@ Please:
                     )}
                     {report.tech_stack.some(t => ["supabase","firebase","express","fastapi","django","node"].some(k => t.name.toLowerCase().includes(k))) && (
                       <div>
-                        <div style={{ display: "flex", alignItems: "center", gap: "8px", marginBottom: "4px" }}>
-                          <span style={{ fontSize: "1.25rem" }}>👨‍🍳</span>
-                          <span style={{ fontWeight: 600, color: "var(--text-primary)" }}>THE KITCHEN (Backend / Database)</span>
+                        <div style={{ marginBottom: "4px" }}>
+                          <span style={{ fontWeight: 600, color: "var(--text-primary)", fontSize: "0.75rem", letterSpacing: "0.08em" }}>THE KITCHEN (Backend / Database)</span>
                         </div>
                         <p style={{ color: "var(--text-secondary)", fontSize: "0.8125rem", lineHeight: 1.6, paddingLeft: "2rem" }}>
                           Where the real work happens. Stores user data, processes orders, handles logins. Customers never see this directly.
@@ -638,9 +708,8 @@ Please:
                       </div>
                     )}
                     <div>
-                      <div style={{ display: "flex", alignItems: "center", gap: "8px", marginBottom: "4px" }}>
-                        <span style={{ fontSize: "1.25rem" }}>🔌</span>
-                        <span style={{ fontWeight: 600, color: "var(--text-primary)" }}>HOW THEY CONNECT</span>
+                      <div style={{ marginBottom: "4px" }}>
+                        <span style={{ fontWeight: 600, color: "var(--text-primary)", fontSize: "0.75rem", letterSpacing: "0.08em" }}>HOW THEY CONNECT</span>
                       </div>
                       <p style={{ color: "var(--text-secondary)", fontSize: "0.8125rem", lineHeight: 1.6, paddingLeft: "2rem" }}>
                         The menu sends orders to the kitchen through a “window” called an API. When someone clicks “Sign Up,” the frontend sends a message to the backend.
@@ -648,7 +717,7 @@ Please:
                     </div>
                     <div style={{ background: "var(--surface-main)", borderRadius: "6px", padding: "0.75rem 1rem", marginTop: "0.5rem" }}>
                       <p style={{ fontSize: "0.75rem", color: "var(--text-tertiary)", margin: 0 }}>
-                        💡 Switch to “Advanced” mode (top right) to see the technical architecture diagram.
+                        Switch to &ldquo;Advanced&rdquo; mode (top right) to see the technical architecture diagram.
                       </p>
                     </div>
                   </div>
@@ -1375,7 +1444,7 @@ Please:
                     {hasSupabase && (
                       <div style={{ background: "rgba(245,158,11,0.08)", border: "1px solid rgba(245,158,11,0.2)", borderRadius: "10px", padding: "1.25rem" }}>
                         <p style={{ fontWeight: 600, fontSize: "0.875rem", color: "#fbbf24", marginBottom: "4px" }}>
-                          ⚠ Supabase detected — important security step
+                          Supabase detected — important security step
                         </p>
                         <p style={{ fontSize: "0.8125rem", color: "var(--text-secondary)", lineHeight: 1.6 }}>
                           Before going live: In Supabase → Authentication → URL Configuration, add your production URL to &quot;Site URL&quot; and &quot;Redirect URLs&quot;. Also enable Row Level Security (RLS) on all your tables — without it, any user can read all data.
