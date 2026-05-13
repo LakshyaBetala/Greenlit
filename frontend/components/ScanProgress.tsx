@@ -34,11 +34,9 @@ export default function ScanProgress({ repoLabel }: Props) {
 
   useEffect(() => {
     let cancelled = false;
-    let totalElapsed = 0;
     const advance = (idx: number) => {
       if (cancelled || idx >= STEPS.length) return;
       const delay = STEP_DURATIONS_MS[idx] ?? 8_000;
-      totalElapsed += delay;
       setTimeout(() => {
         if (cancelled) return;
         // Never set past the last step — last step shows "Writing..." until scan completes.
