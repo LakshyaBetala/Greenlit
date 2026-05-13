@@ -10,7 +10,7 @@ import Link from "next/link";
 import {
   ArrowRight, Shield, GitBranch, Activity,
   Eye, Wrench, Bell, Globe, Terminal, Lock,
-  TrendingUp, ChevronRight, AlertTriangle,
+  TrendingUp, ChevronRight, AlertTriangle, Check,
 } from "lucide-react";
 
 /* ── small reusable components ── */
@@ -110,7 +110,7 @@ function ExploitPreview() {
         <div style={{ color: "#888" }}># Verifying fix...</div>
         <div>
           <span style={{ color: "#22c55e", fontWeight: 700 }}>SECURE</span>
-          <span style={{ color: "#888" }}> → Response 403 Forbidden — exploit closed ✓</span>
+          <span style={{ color: "#888" }}> → Response 403 Forbidden — exploit closed</span>
         </div>
       </div>
     </div>
@@ -163,14 +163,6 @@ export default function LandingPage() {
           }}
         >
           <div style={{ maxWidth: "680px", margin: "0 auto", textAlign: "center" }}>
-
-            {/* Badge */}
-            <div className="animate-in stagger-1" style={{ marginBottom: "1.5rem" }}>
-              <span className="badge badge-green">
-                <span style={{ width: "6px", height: "6px", borderRadius: "50%", background: "var(--green)", animation: "pulse-green 2s infinite" }} />
-                CTO in a Box — for apps built with AI
-              </span>
-            </div>
 
             {/* Headline */}
             <h1
@@ -284,76 +276,6 @@ export default function LandingPage() {
             )}
           </div>
         </section>
-
-        {/* ══════════════════════════════════════════════
-            STATE OF VIBE CODING
-        ══════════════════════════════════════════════ */}
-        {stats && stats.total_scans > 0 && (
-          <section style={{ borderTop: "1px solid var(--border-subtle)", padding: "80px 1.5rem" }}>
-            <div style={{ maxWidth: "var(--max-width)", margin: "0 auto" }}>
-              <div style={{ textAlign: "center", marginBottom: "3rem" }}>
-                <span className="badge badge-red" style={{ marginBottom: "1rem" }}>
-                  <TrendingUp size={10} />
-                  Live Data
-                </span>
-                <h2 style={{ fontSize: "clamp(1.5rem, 2.5vw, 2rem)", fontWeight: 700, letterSpacing: "-0.03em", lineHeight: 1.2, marginBottom: "0.75rem" }}>
-                  State of Vibe Coding
-                </h2>
-                <p style={{ fontSize: "0.9375rem", color: "var(--text-secondary)", maxWidth: "34rem", margin: "0 auto" }}>
-                  Real data from AI-built apps scanned on Greenlit. The numbers are worse than you&apos;d think.
-                </p>
-              </div>
-
-              <div className="stats-grid" style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: "1rem" }}>
-                <div style={{ background: "var(--surface-alt)", border: "1px solid var(--border-subtle)", borderRadius: "10px", padding: "1.5rem" }}>
-                  <div style={{ fontSize: "2.5rem", fontWeight: 800, letterSpacing: "-0.04em", color: "var(--text-primary)", fontVariantNumeric: "tabular-nums", lineHeight: 1 }}>
-                    {stats.total_scans.toLocaleString()}
-                  </div>
-                  <div style={{ fontSize: "0.8125rem", color: "var(--text-secondary)", marginTop: "0.5rem" }}>repos scanned</div>
-                </div>
-
-                <div style={{ background: "rgba(239,68,68,0.06)", border: "1px solid rgba(239,68,68,0.15)", borderRadius: "10px", padding: "1.5rem" }}>
-                  <div style={{ fontSize: "2.5rem", fontWeight: 800, letterSpacing: "-0.04em", color: "#f87171", fontVariantNumeric: "tabular-nums", lineHeight: 1 }}>
-                    {stats.pct_repos_with_criticals}%
-                  </div>
-                  <div style={{ fontSize: "0.8125rem", color: "var(--text-secondary)", marginTop: "0.5rem" }}>have critical vulnerabilities</div>
-                </div>
-
-                <div style={{ background: "var(--surface-alt)", border: "1px solid var(--border-subtle)", borderRadius: "10px", padding: "1.5rem" }}>
-                  <div style={{ fontSize: "2.5rem", fontWeight: 800, letterSpacing: "-0.04em", color: "var(--text-primary)", fontVariantNumeric: "tabular-nums", lineHeight: 1 }}>
-                    {stats.total_vulnerabilities.toLocaleString()}
-                  </div>
-                  <div style={{ fontSize: "0.8125rem", color: "var(--text-secondary)", marginTop: "0.5rem" }}>vulnerabilities found</div>
-                </div>
-
-                {stats.avg_health_score !== null && (
-                  <div style={{ background: "var(--surface-alt)", border: "1px solid var(--border-subtle)", borderRadius: "10px", padding: "1.5rem" }}>
-                    <div style={{
-                      fontSize: "2.5rem", fontWeight: 800, letterSpacing: "-0.04em", lineHeight: 1,
-                      fontVariantNumeric: "tabular-nums",
-                      color: stats.avg_health_score >= 80 ? "var(--green)" : stats.avg_health_score >= 60 ? "#f59e0b" : "#f87171",
-                    }}>
-                      {stats.avg_health_score}/100
-                    </div>
-                    <div style={{ fontSize: "0.8125rem", color: "var(--text-secondary)", marginTop: "0.5rem" }}>average health score</div>
-                  </div>
-                )}
-
-                <div style={{ background: "rgba(239,68,68,0.06)", border: "1px solid rgba(239,68,68,0.15)", borderRadius: "10px", padding: "1.5rem" }}>
-                  <div style={{ fontSize: "2.5rem", fontWeight: 800, letterSpacing: "-0.04em", color: "#f87171", fontVariantNumeric: "tabular-nums", lineHeight: 1 }}>
-                    {stats.total_criticals.toLocaleString()}
-                  </div>
-                  <div style={{ fontSize: "0.8125rem", color: "var(--text-secondary)", marginTop: "0.5rem" }}>critical issues found</div>
-                </div>
-
-                <div style={{ background: "var(--green-dim)", border: "1px solid var(--green-border)", borderRadius: "10px", padding: "1.5rem" }}>
-                  <div style={{ fontSize: "2.5rem", fontWeight: 800, letterSpacing: "-0.04em", color: "var(--green)", lineHeight: 1 }}>Free</div>
-                  <div style={{ fontSize: "0.8125rem", color: "var(--text-secondary)", marginTop: "0.5rem" }}>to scan your first repo</div>
-                </div>
-              </div>
-            </div>
-          </section>
-        )}
 
         {/* ══════════════════════════════════════════════
             PROOF OF EXPLOIT — the differentiator
@@ -512,7 +434,7 @@ export default function LandingPage() {
                 <div style={{ display: "flex", flexDirection: "column", gap: "8px", flex: 1 }}>
                   {["1 repo", "Public repos only", "Full security audit", "Health score", "Plain-English report"].map((f) => (
                     <div key={f} style={{ display: "flex", alignItems: "center", gap: "8px", fontSize: "0.8125rem", color: "var(--text-secondary)" }}>
-                      <span style={{ color: "var(--green)", fontSize: "0.75rem" }}>✓</span> {f}
+                      <Check size={12} strokeWidth={2.5} color="var(--green)" /> {f}
                     </div>
                   ))}
                 </div>
@@ -532,12 +454,12 @@ export default function LandingPage() {
                     <span style={{ fontSize: "2rem", fontWeight: 700, letterSpacing: "-0.04em" }}>₹499</span>
                     <span style={{ fontSize: "0.8125rem", color: "var(--text-secondary)" }}>/mo</span>
                   </div>
-                  <div style={{ fontSize: "0.6875rem", color: "var(--text-tertiary)", marginTop: "2px" }}>~$6/mo · Less than one pizza</div>
+                  <div style={{ fontSize: "0.6875rem", color: "var(--text-tertiary)", marginTop: "2px" }}>~$6/mo</div>
                 </div>
                 <div style={{ display: "flex", flexDirection: "column", gap: "8px", flex: 1 }}>
                   {["3 private repos", "Continuous monitoring", "Scan history + trends", "Email alerts", "Priority support"].map((f) => (
                     <div key={f} style={{ display: "flex", alignItems: "center", gap: "8px", fontSize: "0.8125rem", color: "var(--text-secondary)" }}>
-                      <span style={{ color: "var(--green)", fontSize: "0.75rem" }}>✓</span> {f}
+                      <Check size={12} strokeWidth={2.5} color="var(--green)" /> {f}
                     </div>
                   ))}
                 </div>
@@ -552,12 +474,12 @@ export default function LandingPage() {
                     <span style={{ fontSize: "2rem", fontWeight: 700, letterSpacing: "-0.04em" }}>₹1,999</span>
                     <span style={{ fontSize: "0.8125rem", color: "var(--text-secondary)" }}>/mo</span>
                   </div>
-                  <div style={{ fontSize: "0.6875rem", color: "var(--text-tertiary)", marginTop: "2px" }}>~$24/mo · Cheaper than one Fiverr audit</div>
+                  <div style={{ fontSize: "0.6875rem", color: "var(--text-tertiary)", marginTop: "2px" }}>~$24/mo</div>
                 </div>
                 <div style={{ display: "flex", flexDirection: "column", gap: "8px", flex: 1 }}>
                   {["Unlimited repos", "Auto-Fix PRs", "Proof of Exploit probing", "Public security badge", "Team dashboard", "API access"].map((f) => (
                     <div key={f} style={{ display: "flex", alignItems: "center", gap: "8px", fontSize: "0.8125rem", color: "var(--text-secondary)" }}>
-                      <span style={{ color: "var(--green)", fontSize: "0.75rem" }}>✓</span> {f}
+                      <Check size={12} strokeWidth={2.5} color="var(--green)" /> {f}
                     </div>
                   ))}
                 </div>
@@ -597,7 +519,7 @@ export default function LandingPage() {
               No credit card · Public repos always free · Cancel anytime
             </p>
             <div style={{ marginTop: "2rem", display: "flex", alignItems: "center", justifyContent: "center", gap: "6px" }}>
-              <span style={{ fontSize: "0.6875rem", color: "var(--text-tertiary)", letterSpacing: "0.05em" }}>Built in India 🇮🇳 · For the world</span>
+              <span style={{ fontSize: "0.6875rem", color: "var(--text-tertiary)", letterSpacing: "0.05em" }}>Built in India · For the world</span>
             </div>
           </div>
         </section>

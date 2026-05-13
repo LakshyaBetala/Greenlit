@@ -1,14 +1,22 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useSyncExternalStore } from "react";
 import { Shield, LayoutDashboard } from "lucide-react";
 import Link from "next/link";
 
+// Hydration-safe localStorage read for auth state.
+// useSyncExternalStore returns getServerSnapshot() during SSR + the initial
+// client render, then switches to getSnapshot() after hydration. This avoids
+// the server/client tear we saw before (server = false, client = true).
+const subscribeAuth = (cb: () => void) => {
+  window.addEventListener("storage", cb);
+  return () => window.removeEventListener("storage", cb);
+};
+const readAuthClient = () => !!localStorage.getItem("github_token");
+const readAuthServer = () => false;
+
 export default function Navbar() {
-  const [isLoggedIn] = useState(() => {
-    if (typeof window === "undefined") return false;
-    return !!localStorage.getItem("github_token");
-  });
+  const isLoggedIn = useSyncExternalStore(subscribeAuth, readAuthClient, readAuthServer);
   const [scrolled, setScrolled] = useState(false);
 
   useEffect(() => {
