@@ -12,6 +12,7 @@ import ActivityTimeline from "@/components/ActivityTimeline";
 import BenchmarkMetrics from "@/components/BenchmarkMetrics";
 import VerdictCinema from "@/components/VerdictCinema";
 import ScanProgress from "@/components/ScanProgress";
+import VulnerabilityList from "@/components/VulnerabilityList";
 import {
   Shield, ArrowRight, RotateCcw, AlertTriangle,
   Network, Layers, Cable, Workflow, BookOpen, Bug, LinkIcon, Lightbulb,
@@ -911,86 +912,11 @@ Please:
                   </button>
                 )}
               </div>
-              <div style={{ display: "flex", flexDirection: "column", gap: "0.75rem" }}>
-                {report?.vulnerabilities?.map((vuln, i) => (
-                  <div key={i} style={{ ...S.card, padding: "1.25rem" }}>
-                    <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: "1rem", marginBottom: "0.75rem", flexWrap: "wrap" }}>
-                      <div style={{ display: "flex", alignItems: "center", gap: "0.75rem" }}>
-                        <div style={{ width: "8px", height: "8px", borderRadius: "50%", background: severityDotColor(vuln.severity), flexShrink: 0 }} />
-                        <span style={{ color: "var(--text-primary)", fontWeight: 600, fontSize: "0.9375rem" }}>
-                          {vuln.title}
-                        </span>
-                      </div>
-                      <span style={{
-                        ...severityBadgeStyle(vuln.severity),
-                        display: "inline-flex", alignItems: "center",
-                        padding: "2px 10px",
-                        borderRadius: "999px",
-                        fontSize: "0.6875rem",
-                        fontWeight: 700,
-                        textTransform: "uppercase",
-                        letterSpacing: "0.04em",
-                        flexShrink: 0,
-                      }}>
-                        {vuln.severity}
-                      </span>
-                    </div>
-                    <p style={{ marginBottom: explainMode === "simple" ? "0.5rem" : "0.75rem", color: "var(--text-secondary)", fontSize: "0.875rem", lineHeight: 1.6 }}>
-                      {vuln.description}
-                    </p>
-                    {explainMode === "simple" && vuln.fix_suggestion && (
-                      <div style={{ background: "var(--surface-main)", border: "1px solid var(--border-subtle)", borderRadius: "6px", padding: "0.625rem 0.875rem", marginBottom: "0.75rem" }}>
-                        <span style={{ color: "var(--text-tertiary)", fontSize: "0.7rem", fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.06em" }}>How to fix it</span>
-                        <p style={{ color: "var(--text-secondary)", fontSize: "0.8125rem", lineHeight: 1.5, margin: "0.25rem 0 0" }}>{vuln.fix_suggestion}</p>
-                      </div>
-                    )}
-                    <div style={{ display: "flex", flexWrap: "wrap", alignItems: "center", gap: "0.75rem" }}>
-                      <span className="text-code" style={S.codeChip}>
-                        {vuln.file}{vuln.line ? `:${vuln.line}` : ""}
-                      </span>
-                      {explainMode === "advanced" && vuln.fix_suggestion && (
-                        <span style={{
-                          fontSize: "0.75rem",
-                          color: "var(--green)",
-                          background: "var(--green-dim)",
-                          border: "1px solid var(--green-border)",
-                          borderRadius: "5px",
-                          padding: "2px 8px",
-                        }}>
-                          Fix: {vuln.fix_suggestion}
-                        </span>
-                      )}
-                      {/* Copy AI Fix Prompt — the moat */}
-                      <button
-                        onClick={() => copyFixPrompt(generateFixPrompt(vuln), `fix-${i}`)}
-                        style={{
-                          display: "inline-flex", alignItems: "center", gap: "4px",
-                          fontSize: "0.6875rem", fontWeight: 600,
-                          background: "var(--green-dim)", color: "var(--green)",
-                          border: "1px solid var(--green-border)",
-                          borderRadius: "5px", padding: "3px 10px",
-                          cursor: "pointer", transition: "all 0.15s",
-                          marginLeft: "auto",
-                        }}
-                      >
-                        {fixCopied === `fix-${i}` ? (
-                          <><Check style={{ width: "10px", height: "10px" }} /> Copied!</>
-                        ) : (
-                          <><Copy style={{ width: "10px", height: "10px" }} /> Copy Fix for Cursor</>
-                        )}
-                      </button>
-                    </div>
-                  </div>
-                ))}
-                {(!report?.vulnerabilities || report.vulnerabilities.length === 0) && (
-                  <div style={{ ...S.card, padding: "3rem", textAlign: "center" }}>
-                    <Shield style={{ width: "48px", height: "48px", margin: "0 auto 1rem", color: "var(--green)" }} />
-                    <p style={{ color: "var(--text-secondary)", fontWeight: 500, fontSize: "1.0625rem" }}>
-                      No vulnerabilities detected. Your code looks clean!
-                    </p>
-                  </div>
-                )}
-              </div>
+              <VulnerabilityList
+                vulnerabilities={report?.vulnerabilities ?? []}
+                explainMode={explainMode}
+                onCopyToCursor={(v) => copyFixPrompt(generateFixPrompt(v), `fix-${(report?.vulnerabilities ?? []).indexOf(v)}`)}
+              />
             </div>
           )}
 
