@@ -175,11 +175,11 @@ export default function LandingPage() {
                 marginBottom: "1.25rem",
               }}
             >
-              Your app has
+              The app you vibe-coded
               <br />
-              <span style={{ color: "var(--green)" }}>vulnerabilities.</span>
+              <span style={{ color: "var(--green)" }}>is already leaking.</span>
               <br />
-              We find & fix them.
+              We find it before they do.
             </h1>
 
             {/* Subtext */}
@@ -189,13 +189,13 @@ export default function LandingPage() {
                 fontSize: "1.0625rem",
                 color: "var(--text-secondary)",
                 lineHeight: 1.65,
-                maxWidth: "480px",
+                maxWidth: "520px",
                 margin: "0 auto 2.5rem",
               }}
             >
-              Your CTO in a box. Paste your repo — Greenlit explains what you built,
-              finds the security holes, proves they&apos;re real, and writes the fix.
-              Paste it into Cursor. Done.
+              Paste your repo. Greenlit reads it, attacks your live app with 20 real exploits,
+              proves what&apos;s broken, and opens a PR that fixes it. The Lovable BOLA leaked 18,000 users —
+              this catches that on day one.
             </p>
 
             {/* Scan bar */}
@@ -272,8 +272,30 @@ export default function LandingPage() {
                 <StatPill value={stats.total_scans.toLocaleString()} label="repos scanned" />
                 <Divider />
                 <StatPill value={stats.total_vulnerabilities.toLocaleString()} label="vulnerabilities found" />
+                <Divider />
+                <StatPill value={(stats.total_criticals ?? 0).toLocaleString()} label="criticals prevented" />
               </div>
             )}
+
+            {/* Founder lock-in ribbon */}
+            <div
+              className="animate-in stagger-6"
+              style={{
+                marginTop: "1.25rem",
+                display: "inline-flex",
+                alignItems: "center",
+                gap: "8px",
+                fontSize: "0.75rem",
+                color: "var(--text-secondary)",
+                padding: "6px 14px",
+                borderRadius: "999px",
+                background: "var(--green-dim)",
+                border: "1px solid var(--green-border)",
+              }}
+            >
+              <span style={{ width: "6px", height: "6px", borderRadius: "50%", background: "var(--green)" }} />
+              <span><strong style={{ color: "var(--text-primary)" }}>First 300 founders</strong> lock in $7/mo Starter for life · <Link href="/pricing" style={{ color: "var(--green)" }}>see plans →</Link></span>
+            </div>
           </div>
         </section>
 
