@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { Inter, JetBrains_Mono } from "next/font/google";
 import "./globals.css";
+import { ThemeProvider } from "@/components/ThemeProvider";
 
 const inter = Inter({
   variable: "--font-inter",
@@ -15,27 +16,28 @@ const jetbrainsMono = JetBrains_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "Greenlit — CTO in a Box for AI-Built Apps",
+  title: "Greenlit — live red-team for AI-built apps",
   description:
-    "Your CTO in a box. Paste your repo — Greenlit explains what you built, finds the security holes, proves they're real, and writes the fix. Paste it into Cursor. Done.",
+    "Paste your repo. We attack it. We prove what's broken. We open the PR that fixes it. Built for founders shipping with Lovable, Bolt and Cursor.",
   keywords: [
-    "CTO in a box",
-    "vibe coding security",
-    "AI app security audit",
+    "AI app security",
     "Lovable security scanner",
-    "Bolt security",
+    "Bolt security audit",
     "Cursor security",
+    "DAST live probe",
     "auto-fix vulnerabilities",
-    "GitHub repo security",
-    "non-technical founder security",
-    "India startup security",
+    "continuous monitoring",
+    "vibe coding security",
   ],
   openGraph: {
-    title: "Greenlit — CTO in a Box for AI-Built Apps",
-    description: "You built it with AI. We protect it with AI. Scan → Understand → Fix.",
+    title: "Greenlit — live red-team for AI-built apps",
+    description:
+      "Paste your repo. We attack it. We prove what's broken. We open the PR.",
     type: "website",
   },
 };
+
+const noFoucScript = `(function(){try{var s=localStorage.getItem('greenlit-theme');var t=(s==='light'||s==='dark')?s:(window.matchMedia&&window.matchMedia('(prefers-color-scheme: light)').matches?'light':'dark');document.documentElement.setAttribute('data-theme',t);}catch(e){document.documentElement.setAttribute('data-theme','dark');}})();`;
 
 export default function RootLayout({
   children,
@@ -43,11 +45,15 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="en">
+    <html lang="en" suppressHydrationWarning>
+      <head>
+        {/* No-FOUC: must run before paint, so we inline it. */}
+        <script dangerouslySetInnerHTML={{ __html: noFoucScript }} />
+      </head>
       <body
         className={`${inter.variable} ${jetbrainsMono.variable} antialiased`}
       >
-        {children}
+        <ThemeProvider>{children}</ThemeProvider>
       </body>
     </html>
   );

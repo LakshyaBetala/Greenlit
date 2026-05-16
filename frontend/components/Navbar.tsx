@@ -3,6 +3,7 @@
 import { useState, useEffect, useSyncExternalStore } from "react";
 import { Shield, LayoutDashboard } from "lucide-react";
 import Link from "next/link";
+import ThemeToggle from "./ThemeToggle";
 
 // Hydration-safe localStorage read for auth state.
 // useSyncExternalStore returns getServerSnapshot() during SSR + the initial
@@ -143,6 +144,7 @@ export default function Navbar() {
 
         {/* Right side */}
         <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
+          <ThemeToggle />
           {isLoggedIn ? (
             <Link
               href="/dashboard"

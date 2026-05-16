@@ -7,55 +7,153 @@
   --font-mono: var(--font-mono);
 }
 
-@layer base {
-  :root {
-    /* ── Core Surfaces ── */
-    --surface-main: #0a0a0a;
-    --surface-alt: #111111;
-    --surface-elevated: #161616;
-    --surface-hover: #1a1a1a;
+/* ──────────────────────────────────────────────────────────────
+   THEME TOKENS — dark default, light variant via [data-theme="light"]
+   on <html>. No-FOUC script in layout.tsx sets the attribute
+   before React hydration. Brand green is constant across themes.
+   ────────────────────────────────────────────────────────────── */
 
-    /* ── Text ── */
-    --text-primary: #eeeeee;
-    --text-secondary: #777777;
-    --text-tertiary: #444444;
+:root,
+[data-theme="dark"] {
+  /* Surfaces — slight warmth to avoid the "AI default #0a0a0a" trap */
+  --surface-main: #0b0b0d;
+  --surface-alt: #111114;
+  --surface-elevated: #16161a;
+  --surface-hover: #1d1d22;
+  --surface-sunken: #08080a;
 
-    /* ── Greenlit Brand (green = safe = go signal) ── */
-    --green: #22c55e;
-    --green-dim: rgba(34, 197, 94, 0.08);
-    --green-border: rgba(34, 197, 94, 0.2);
-    --green-hover: #16a34a;
+  /* Text — Zinc-style ramp, AA-compliant */
+  --text-primary: #ededee;
+  --text-secondary: #a1a1aa;
+  --text-tertiary: #71717a;
+  --text-disabled: #52525b;
 
-    /* Mapped to old Almmatix vars so existing refs work */
-    --almmatix-red: #22c55e;
-    --almmatix-red-light: rgba(34, 197, 94, 0.08);
-    --almmatix-red-hover: #16a34a;
+  /* Brand green — same constant across themes for recognisability */
+  --green: #22c55e;
+  --green-bright: #4ade80;
+  --green-dim: rgba(34, 197, 94, 0.10);
+  --green-border: rgba(34, 197, 94, 0.25);
+  --green-hover: #16a34a;
 
-    /* ── Borders ── */
-    --border-subtle: #1e1e1e;
-    --border-strong: #2a2a2a;
-    --border-hover: #383838;
+  /* Aliases retained for older component refs */
+  --almmatix-red: var(--green);
+  --almmatix-red-light: var(--green-dim);
+  --almmatix-red-hover: var(--green-hover);
 
-    /* ── Status ── */
-    --status-success: #22c55e;
-    --status-warning: #f59e0b;
-    --status-error: #ef4444;
-    --status-info: #3b82f6;
+  /* Borders */
+  --border-subtle: #1f1f23;
+  --border-strong: #2a2a30;
+  --border-hover: #38383f;
 
-    /* ── Ink system (used across components) ── */
-    --ink-white: #eeeeee;
-    --ink-mid: #888888;
-    --ink-dim: #555555;
-    --ink-muted: #2a2a2a;
-    --ink-subtle: #161616;
-    --ink-gold: #f59e0b;
-    --ink-rose: #ef4444;
+  /* Status — slightly desaturated for dark backgrounds */
+  --status-success: #22c55e;
+  --status-warning: #f59e0b;
+  --status-error: #ef4444;
+  --status-info: #3b82f6;
 
-    /* ── Layout ── */
-    --max-width: 1200px;
-    --nav-height: 60px;
+  /* Severity dots (always the same hue, theme-neutral) */
+  --sev-critical: #ef4444;
+  --sev-high: #f97316;
+  --sev-medium: #f59e0b;
+  --sev-low: #3b82f6;
+
+  /* Ink system (legacy, kept for backward compat) */
+  --ink-white: #ededee;
+  --ink-mid: #a1a1aa;
+  --ink-dim: #71717a;
+  --ink-muted: #2a2a30;
+  --ink-subtle: #16161a;
+  --ink-gold: #f59e0b;
+  --ink-rose: #ef4444;
+
+  /* Code-block surface — stays dark in both themes */
+  --code-bg: #08080a;
+  --code-text: #d4d4d4;
+
+  /* Shadow */
+  --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.3);
+  --shadow-md: 0 4px 16px rgba(0, 0, 0, 0.4);
+  --shadow-lg: 0 12px 40px rgba(0, 0, 0, 0.5);
+
+  /* Selection */
+  --selection-bg: rgba(34, 197, 94, 0.25);
+  --selection-fg: #ffffff;
+
+  color-scheme: dark;
+}
+
+[data-theme="light"] {
+  /* Surfaces — slight cool undertone, no pure white */
+  --surface-main: #fafafa;
+  --surface-alt: #ffffff;
+  --surface-elevated: #ffffff;
+  --surface-hover: #f4f4f5;
+  --surface-sunken: #f4f4f5;
+
+  /* Text — high contrast on near-white */
+  --text-primary: #18181b;
+  --text-secondary: #52525b;
+  --text-tertiary: #71717a;
+  --text-disabled: #a1a1aa;
+
+  /* Brand green — darker tone passes AA on white (#16a34a) */
+  --green: #16a34a;
+  --green-bright: #15803d;
+  --green-dim: rgba(22, 163, 74, 0.08);
+  --green-border: rgba(22, 163, 74, 0.22);
+  --green-hover: #15803d;
+
+  --almmatix-red: var(--green);
+  --almmatix-red-light: var(--green-dim);
+  --almmatix-red-hover: var(--green-hover);
+
+  /* Borders */
+  --border-subtle: #e4e4e7;
+  --border-strong: #d4d4d8;
+  --border-hover: #a1a1aa;
+
+  /* Status */
+  --status-success: #16a34a;
+  --status-warning: #d97706;
+  --status-error: #dc2626;
+  --status-info: #2563eb;
+
+  /* Severity dots — same hues, brand-consistent */
+  --sev-critical: #dc2626;
+  --sev-high: #ea580c;
+  --sev-medium: #d97706;
+  --sev-low: #2563eb;
+
+  --ink-white: #18181b;
+  --ink-mid: #52525b;
+  --ink-dim: #71717a;
+  --ink-muted: #e4e4e7;
+  --ink-subtle: #f4f4f5;
+  --ink-gold: #d97706;
+  --ink-rose: #dc2626;
+
+  /* Code blocks stay dark in light mode — terminals read better that way */
+  --code-bg: #0b0b0d;
+  --code-text: #e4e4e7;
+
+  --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.05);
+  --shadow-md: 0 4px 16px rgba(0, 0, 0, 0.08);
+  --shadow-lg: 0 12px 40px rgba(0, 0, 0, 0.12);
+
+  --selection-bg: rgba(22, 163, 74, 0.20);
+  --selection-fg: #052e16;
+
+  color-scheme: light;
+}
+
+/* Respect OS preference when user has not chosen explicitly */
+@media (prefers-color-scheme: light) {
+  :root:not([data-theme]) {
+    color-scheme: light;
   }
+}
 
+@layer base {
   * {
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
@@ -71,6 +169,7 @@
     color: var(--text-primary);
     font-family: var(--font-sans), system-ui, sans-serif;
     line-height: 1.6;
+    transition: background-color 0.12s ease, color 0.12s ease;
   }
 
   h1, h2, h3, h4, h5, h6 {
@@ -80,16 +179,41 @@
     line-height: 1.15;
   }
 
+  a {
+    color: inherit;
+    text-decoration: none;
+  }
+
   ::selection {
-    background: rgba(34, 197, 94, 0.2);
-    color: var(--text-primary);
+    background: var(--selection-bg);
+    color: var(--selection-fg);
   }
 
   /* Scrollbar */
   ::-webkit-scrollbar { width: 6px; height: 6px; }
-  ::-webkit-scrollbar-track { background: var(--surface-main); }
+  ::-webkit-scrollbar-track { background: transparent; }
   ::-webkit-scrollbar-thumb { background: var(--border-strong); border-radius: 3px; }
   ::-webkit-scrollbar-thumb:hover { background: var(--border-hover); }
+
+  /* Reduced motion override */
+  @media (prefers-reduced-motion: reduce) {
+    *, *::before, *::after {
+      animation-duration: 0.001ms !important;
+      transition-duration: 0.001ms !important;
+    }
+  }
+
+  /* Focus ring — visible only on keyboard nav */
+  :focus-visible {
+    outline: 2px solid var(--green);
+    outline-offset: 2px;
+    border-radius: 4px;
+  }
+
+  button:focus:not(:focus-visible),
+  a:focus:not(:focus-visible) {
+    outline: none;
+  }
 }
 
 @layer components {
@@ -98,7 +222,7 @@
     background: var(--surface-alt);
     border: 1px solid var(--border-subtle);
     border-radius: 10px;
-    transition: border-color 0.15s ease;
+    transition: border-color 0.15s ease, background 0.15s ease;
   }
 
   .surface-card:hover {
@@ -120,24 +244,32 @@
     font-size: 0.875rem;
     font-weight: 500;
     border-radius: 7px;
-    transition: all 0.15s ease;
+    transition: background 0.12s ease, color 0.12s ease, border-color 0.12s ease, transform 0.06s ease;
     cursor: pointer;
     white-space: nowrap;
     border: none;
     outline: none;
     text-decoration: none;
+    user-select: none;
   }
+
+  .btn:active { transform: translateY(0.5px); }
 
   .btn-almmatix,
   .btn-green {
     background: var(--green);
-    color: #000000;
+    color: #052e16;
     font-weight: 600;
+  }
+
+  [data-theme="light"] .btn-green,
+  [data-theme="light"] .btn-almmatix {
+    color: #ffffff;
   }
 
   .btn-almmatix:hover,
   .btn-green:hover {
-    background: #4ade80;
+    background: var(--green-bright);
   }
 
   .btn-primary {
@@ -147,7 +279,7 @@
   }
 
   .btn-primary:hover {
-    background: #ffffff;
+    opacity: 0.9;
   }
 
   .btn-outline {
@@ -181,7 +313,7 @@
     font-size: 0.875rem;
     width: 100%;
     outline: none;
-    transition: border-color 0.15s ease;
+    transition: border-color 0.15s ease, background 0.12s ease;
   }
 
   .input-dark::placeholder { color: var(--text-tertiary); }
@@ -224,15 +356,21 @@
   }
 
   .badge-red {
-    background: rgba(239, 68, 68, 0.08);
-    color: #f87171;
-    border: 1px solid rgba(239, 68, 68, 0.2);
+    background: rgba(239, 68, 68, 0.10);
+    color: var(--status-error);
+    border: 1px solid rgba(239, 68, 68, 0.25);
+  }
+
+  [data-theme="light"] .badge-red {
+    background: rgba(220, 38, 38, 0.08);
+    color: var(--status-error);
+    border-color: rgba(220, 38, 38, 0.22);
   }
 
   .badge-yellow {
-    background: rgba(245, 158, 11, 0.08);
-    color: #fbbf24;
-    border: 1px solid rgba(245, 158, 11, 0.2);
+    background: rgba(245, 158, 11, 0.10);
+    color: var(--status-warning);
+    border: 1px solid rgba(245, 158, 11, 0.25);
   }
 
   .badge-neutral {
@@ -246,6 +384,12 @@
     width: 100%;
     height: 1px;
     background: var(--border-subtle);
+  }
+
+  .section-divider {
+    border: none;
+    border-top: 1px solid var(--border-subtle);
+    margin: 0;
   }
 
   /* ── Max container ── */
@@ -264,7 +408,7 @@
     border: 1px solid var(--border-strong);
     border-radius: 10px;
     padding: 6px 6px 6px 14px;
-    transition: border-color 0.15s ease;
+    transition: border-color 0.15s ease, background 0.12s ease;
   }
 
   .scan-bar:focus-within {
@@ -283,18 +427,29 @@
 
   .scan-bar input::placeholder { color: var(--text-tertiary); }
 
-  /* ── Section divider ── */
-  .section-divider {
-    border: none;
-    border-top: 1px solid var(--border-subtle);
-    margin: 0;
-  }
-
   /* ── Severity dots ── */
-  .dot-critical { width: 7px; height: 7px; border-radius: 50%; background: #ef4444; }
-  .dot-high { width: 7px; height: 7px; border-radius: 50%; background: #f97316; }
-  .dot-medium { width: 7px; height: 7px; border-radius: 50%; background: #f59e0b; }
-  .dot-low { width: 7px; height: 7px; border-radius: 50%; background: #3b82f6; }
+  .dot-critical { width: 7px; height: 7px; border-radius: 50%; background: var(--sev-critical); }
+  .dot-high { width: 7px; height: 7px; border-radius: 50%; background: var(--sev-high); }
+  .dot-medium { width: 7px; height: 7px; border-radius: 50%; background: var(--sev-medium); }
+  .dot-low { width: 7px; height: 7px; border-radius: 50%; background: var(--sev-low); }
+
+  /* ── KBD / inline shortcut hint ── */
+  kbd, .kbd {
+    font-family: var(--font-mono), monospace;
+    font-size: 0.75rem;
+    padding: 1px 6px;
+    background: var(--surface-elevated);
+    border: 1px solid var(--border-subtle);
+    border-bottom-width: 2px;
+    border-radius: 4px;
+    color: var(--text-secondary);
+  }
+}
+
+:root {
+  /* Layout — global constants */
+  --max-width: 1200px;
+  --nav-height: 60px;
 }
 
 /* ── Animations ── */
@@ -311,6 +466,11 @@
 @keyframes pulse-green {
   0%, 100% { opacity: 1; }
   50%       { opacity: 0.4; }
+}
+
+@keyframes pulse-dot {
+  0%, 100% { transform: scale(1); opacity: 1; }
+  50%      { transform: scale(1.4); opacity: 0.4; }
 }
 
 .animate-in {
@@ -340,17 +500,11 @@
 
 /* ── Responsive ── */
 @media (max-width: 900px) {
-  /* landing: proof-of-exploit section */
   .proof-grid { grid-template-columns: 1fr !important; }
-  /* landing: how it works */
   .steps-grid { grid-template-columns: 1fr !important; }
-  /* landing: features */
   .features-grid { grid-template-columns: repeat(2, 1fr) !important; }
-  /* landing: pricing */
   .pricing-grid { grid-template-columns: 1fr !important; }
-  /* dashboard stats */
   .stats-grid { grid-template-columns: repeat(2, 1fr) !important; }
-  /* dashboard repos */
   .repo-grid { grid-template-columns: 1fr !important; }
 }
 
@@ -361,13 +515,13 @@
 
 /* ── Code block ── */
 .code-block {
-  background: #0d0d0d;
+  background: var(--code-bg);
   border: 1px solid var(--border-subtle);
   border-radius: 8px;
   padding: 1rem;
   font-family: var(--font-mono), monospace;
   font-size: 0.8125rem;
   line-height: 1.6;
-  color: #d4d4d4;
+  color: var(--code-text);
   overflow-x: auto;
 }
