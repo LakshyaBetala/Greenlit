@@ -137,15 +137,28 @@ def process_diff_scan(scan_id: str, github_url: str, changed_files: list = None,
         # Save results
         save_scan_result(scan_id, report, commit_sha)
 
-        critical_count = sum(1 for v in report.get("vulnerabilities", []) if v.get("severity") == "critical")
+        criticals = [v for v in report.get("vulnerabilities", []) if v.get("severity") == "critical"]
+        critical_count = len(criticals)
         if critical_count > 0:
+            user_email, repo_full_name = get_scan_owner_email(scan_id)
             try:
                 from app.services.email_service import send_security_alert
-                user_email, repo_full_name = get_scan_owner_email(scan_id)
                 if user_email and repo_full_name:
                     send_security_alert(user_email, repo_full_name, critical_count, scan_id)
             except Exception as alert_err:
                 print(f"WARN: diff-scan alert email failed: {alert_err}")
+            try:
+                from app.services.slack_service import send_critical_alert
+                from app.config import FRONTEND_URL
+                public_url = f"{FRONTEND_URL.rstrip('/')}/report/{scan_id}"
+                send_critical_alert(
+                    repo_name=repo_full_name or github_url,
+                    critical_findings=criticals,
+                    scan_id=scan_id,
+                    public_report_url=public_url,
+                )
+            except Exception as slack_err:
+                print(f"WARN: slack alert failed: {slack_err}")
 
         print(f"DIFF SCAN: {github_url} — {len(changed_files or [])} files, "
               f"{len(report.get('vulnerabilities', []))} new issues found")

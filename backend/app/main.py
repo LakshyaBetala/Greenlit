@@ -24,6 +24,9 @@ async def startup_event():
     from app.uptime_worker import start_uptime_worker
     start_uptime_worker()
 
+    from app.monitor_worker import start_monitor_worker
+    start_monitor_worker()
+
     # Reset any scans stuck in "processing" from a previous server run.
     # These will never complete since their worker threads died with the process.
     from app.database import get_db
