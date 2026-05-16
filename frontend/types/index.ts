@@ -74,6 +74,15 @@ export interface Vulnerability {
   description: string;
   severity: "critical" | "high" | "medium" | "low";
   fix_suggestion?: string;
+  /* Live-probe evidence (set when finding came from DAST). */
+  proof_request?: string;
+  proof_response?: string;
+  /* Static evidence (when finding came from RAG / file analysis). */
+  file_excerpt?: string;
+  /* Optional source category — "dast" or "static". */
+  source?: "dast" | "static";
+  /* When proof was captured (ISO 8601 or human string). */
+  captured_at?: string;
 }
 
 export interface BrokenLink {

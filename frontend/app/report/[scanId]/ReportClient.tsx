@@ -1,18 +1,40 @@
 "use client";
 
+/**
+ * Public report — /report/[scanId]
+ *
+ * The shareable artefact. Designed to look like a security attestation,
+ * not a marketing landing page. Three sections: verdict header, executive
+ * summary, finding list. Theme-aware (light + dark) via v2 tokens.
+ *
+ * Linked badge image at top doubles as the OG preview.
+ */
+
 import { useEffect, useState } from "react";
 import { useParams } from "next/navigation";
+import Link from "next/link";
 import Navbar from "@/components/Navbar";
 import Footer from "@/components/Footer";
 import HealthScoreRing from "@/components/HealthScoreRing";
-import Link from "next/link";
+import VulnerabilityList from "@/components/VulnerabilityList";
+import AiSidekick from "@/components/AiSidekick";
 import {
-  Shield, AlertTriangle, Code2, Layers, ChevronRight,
-  Copy, Check, Lock,
+  Shield,
+  ShieldCheck,
+  ShieldAlert,
+  ShieldX,
+  ChevronRight,
+  Copy,
+  Check,
+  Share2,
+  Layers,
 } from "lucide-react";
+import type { Vulnerability } from "@/types";
+import ShareModal from "@/components/ShareModal";
 
 interface PublicReport {
   scan_id: string;
+  repo_name?: string | null;
   health_score: number | null;
   vulnerabilities_count: number;
   critical_count: number;
@@ -21,13 +43,45 @@ interface PublicReport {
   completed_at: string | null;
   report: {
     simple_explanation?: string;
-    tech_stack?: { name: string; category: string; purpose: string }[];
-    vulnerabilities?: { title: string; severity: string; description: string; file: string }[];
+    advanced_explanation?: string;
+    tech_stack?: { name: string; category: string; purpose?: string }[];
+    vulnerabilities?: Vulnerability[];
     platform_detected?: string | null;
+    verdict_headline?: string;
+    verdict_subhead?: string;
+    verdict_status?: "do_not_ship" | "ship_with_caution" | "ready_to_ship";
   };
 }
 
 const API_BASE = process.env.NEXT_PUBLIC_API_URL || "http://127.0.0.1:8000";
+
+function statusInfo(status: string | undefined, criticalCount: number) {
+  if (status === "do_not_ship" || criticalCount > 0) {
+    return {
+      icon: ShieldX,
+      label: "Do not ship",
+      color: "#ef4444",
+      tint: "rgba(239, 68, 68, 0.10)",
+      border: "rgba(239, 68, 68, 0.30)",
+    };
+  }
+  if (status === "ship_with_caution") {
+    return {
+      icon: ShieldAlert,
+      label: "Ship with caution",
+      color: "var(--status-warning)",
+      tint: "rgba(245, 158, 11, 0.10)",
+      border: "rgba(245, 158, 11, 0.30)",
+    };
+  }
+  return {
+    icon: ShieldCheck,
+    label: "Ready to ship",
+    color: "var(--green)",
+    tint: "var(--green-dim)",
+    border: "var(--green-border)",
+  };
+}
 
 export default function ReportClient() {
   const params = useParams();
@@ -36,16 +90,17 @@ export default function ReportClient() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [copied, setCopied] = useState(false);
+  const [shareOpen, setShareOpen] = useState(false);
 
   useEffect(() => {
     if (!scanId) return;
     fetch(`${API_BASE}/api/public/report/${scanId}`)
-      .then(res => {
+      .then((res) => {
         if (!res.ok) throw new Error("Report not found");
         return res.json();
       })
       .then(setReport)
-      .catch(err => setError(err.message))
+      .catch((err) => setError(err.message))
       .finally(() => setLoading(false));
   }, [scanId]);
 
@@ -57,14 +112,19 @@ export default function ReportClient() {
 
   if (loading) {
     return (
-      <div className="min-h-screen flex flex-col" style={{ background: "var(--ink-black)" }}>
+      <div style={{ minHeight: "100vh", background: "var(--surface-main)" }}>
         <Navbar />
-        <main className="flex-1 flex items-center justify-center">
-          <div className="text-center">
-            <div className="w-3 h-3 rounded-full mx-auto mb-4 loading-dot"
-                 style={{ background: "var(--ink-gold)" }} />
-            <p style={{ color: "var(--ink-dim)", fontSize: "0.875rem" }}>Loading report...</p>
-          </div>
+        <main
+          style={{
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            minHeight: "calc(100vh - var(--nav-height))",
+          }}
+        >
+          <p style={{ color: "var(--text-tertiary)", fontSize: "0.875rem" }} className="loading-dot">
+            Loading report
+          </p>
         </main>
       </div>
     );
@@ -72,183 +132,371 @@ export default function ReportClient() {
 
   if (error || !report) {
     return (
-      <div className="min-h-screen flex flex-col" style={{ background: "var(--ink-black)" }}>
+      <div style={{ minHeight: "100vh", background: "var(--surface-main)" }}>
         <Navbar />
-        <main className="flex-1 flex items-center justify-center">
-          <div className="text-center">
-            <Lock className="w-8 h-8 mx-auto mb-4" style={{ color: "var(--ink-dim)" }} />
-            <h2 className="text-headline mb-2" style={{ fontSize: "1.25rem" }}>Report not found</h2>
-            <p style={{ color: "var(--ink-mid)", fontSize: "0.875rem" }}>
-              This report may not exist or has been removed.
-            </p>
-            <Link href="/" className="btn btn-secondary mt-6">Scan a repo</Link>
-          </div>
+        <main
+          style={{
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            minHeight: "calc(100vh - var(--nav-height))",
+            flexDirection: "column",
+            gap: "1rem",
+            padding: "0 1.5rem",
+          }}
+        >
+          <Shield size={24} style={{ color: "var(--text-tertiary)" }} />
+          <h2 style={{ fontSize: "1.15rem", margin: 0, color: "var(--text-primary)" }}>
+            Report not found
+          </h2>
+          <p
+            style={{
+              color: "var(--text-secondary)",
+              fontSize: "0.875rem",
+              textAlign: "center",
+              maxWidth: 380,
+              margin: 0,
+            }}
+          >
+            This report may have been removed, or the link is wrong.
+          </p>
+          <Link href="/" className="btn btn-green" style={{ marginTop: "0.5rem" }}>
+            Scan a repo instead
+          </Link>
         </main>
         <Footer />
       </div>
     );
   }
 
-  const r = report.report;
+  const r = report.report || {};
   const score = report.health_score ?? 0;
   const vulns = r.vulnerabilities || [];
   const techStack = r.tech_stack || [];
+  const status = statusInfo(r.verdict_status, report.critical_count);
+  const StatusIcon = status.icon;
+  const headline =
+    r.verdict_headline ||
+    (report.critical_count > 0
+      ? `${report.critical_count} critical ${report.critical_count === 1 ? "exploit" : "exploits"} confirmed`
+      : score >= 80
+        ? "Clean — no critical exploits"
+        : "Some risks to review");
+  const subhead =
+    r.verdict_subhead ||
+    (report.critical_count > 0
+      ? "An attacker can use any one of these to access user data without authentication."
+      : "Greenlit ran 20 live attacks and re-read the source. Findings below.");
+
+  const completedDate = report.completed_at
+    ? new Date(report.completed_at).toLocaleDateString(undefined, {
+        year: "numeric",
+        month: "short",
+        day: "numeric",
+      })
+    : null;
 
   return (
-    <div className="min-h-screen flex flex-col" style={{ background: "var(--ink-black)" }}>
+    <div style={{ minHeight: "100vh", background: "var(--surface-main)" }}>
       <Navbar />
 
-      <main className="flex-1 pt-24 pb-16 px-6">
-        <div className="max-w-3xl mx-auto">
-
-          {/* ── Header ── */}
-          <div className="animate-in stagger-1 text-center mb-12">
-            <div className="mb-6">
-              <span className="badge badge-gold" style={{ fontSize: "0.6875rem", padding: "4px 12px" }}>
-                <Shield className="w-3 h-3" />
-                Public Safety Report
-              </span>
+      <main style={{ padding: "5rem 1.5rem 4rem" }}>
+        <div style={{ maxWidth: 880, margin: "0 auto" }}>
+          {/* Verdict banner */}
+          <header
+            style={{
+              padding: "2rem",
+              borderRadius: 12,
+              background: status.tint,
+              border: `1px solid ${status.border}`,
+              display: "flex",
+              alignItems: "center",
+              gap: "1.5rem",
+              flexWrap: "wrap",
+              marginBottom: "2rem",
+            }}
+          >
+            <div style={{ flex: "0 0 auto" }}>
+              <HealthScoreRing score={score} size="lg" />
             </div>
-
-            <HealthScoreRing score={score} size="lg" />
-
-            <h1 className="font-display mt-6 mb-2"
-                style={{ fontSize: "1.75rem", color: "var(--ink-white)" }}>
-              Health Score: {score}/100
-            </h1>
-
-            {report.commit_sha && (
-              <p style={{ color: "var(--ink-dim)", fontSize: "0.75rem", fontFamily: "var(--font-mono)" }}>
-                Commit: {report.commit_sha.slice(0, 7)}
-                {report.completed_at && ` • ${new Date(report.completed_at).toLocaleDateString()}`}
-              </p>
-            )}
-
-            {r.platform_detected && (
-              <div className="mt-3">
-                <span className="badge" style={{
-                  background: "var(--ink-subtle)",
-                  border: "1px solid var(--ink-muted)",
-                  color: "var(--ink-mid)",
-                  fontSize: "0.6875rem",
-                  padding: "3px 10px",
-                }}>
-                  Built with {r.platform_detected}
-                </span>
+            <div style={{ flex: 1, minWidth: 220 }}>
+              <div
+                style={{
+                  display: "inline-flex",
+                  alignItems: "center",
+                  gap: 8,
+                  padding: "4px 10px",
+                  borderRadius: 999,
+                  background: "var(--surface-alt)",
+                  border: `1px solid ${status.border}`,
+                  color: status.color,
+                  fontSize: "0.72rem",
+                  fontWeight: 600,
+                  letterSpacing: "0.08em",
+                  textTransform: "uppercase",
+                  marginBottom: "0.875rem",
+                }}
+              >
+                <StatusIcon size={11} />
+                {status.label}
               </div>
-            )}
-          </div>
-
-          {/* ── Share Button ── */}
-          <div className="animate-in stagger-2 flex justify-center gap-3 mb-12">
-            <button
-              onClick={handleCopyLink}
-              className="btn btn-secondary"
-              style={{ fontSize: "0.8125rem", padding: "8px 16px" }}
-            >
-              {copied ? <Check className="w-3.5 h-3.5" /> : <Copy className="w-3.5 h-3.5" />}
-              {copied ? "Copied!" : "Copy Link"}
-            </button>
-            <Link
-              href="/"
-              className="btn btn-primary"
-              style={{ fontSize: "0.8125rem", padding: "8px 16px" }}
-            >
-              Scan Your Repo
-              <ChevronRight className="w-3.5 h-3.5" />
-            </Link>
-          </div>
-
-          {/* ── What This App Does ── */}
-          {r.simple_explanation && (
-            <div className="animate-in stagger-3 surface-card p-6 mb-6">
-              <h2 className="text-headline mb-3 flex items-center gap-2" style={{ fontSize: "1rem" }}>
-                <Code2 className="w-4 h-4" style={{ color: "var(--ink-gold)" }} />
-                What This App Does
-              </h2>
-              <p style={{ color: "var(--ink-mid)", fontSize: "0.9375rem", lineHeight: 1.7 }}>
-                {r.simple_explanation}
+              <h1
+                style={{
+                  fontSize: "clamp(1.3rem, 3vw, 1.85rem)",
+                  fontWeight: 600,
+                  letterSpacing: "-0.025em",
+                  margin: 0,
+                  color: "var(--text-primary)",
+                  lineHeight: 1.2,
+                }}
+              >
+                {headline}
+              </h1>
+              <p
+                style={{
+                  marginTop: "0.5rem",
+                  color: "var(--text-secondary)",
+                  fontSize: "0.95rem",
+                  lineHeight: 1.55,
+                  marginBottom: 0,
+                }}
+              >
+                {subhead}
               </p>
-            </div>
-          )}
 
-          {/* ── Vulnerabilities ── */}
-          {vulns.length > 0 && (
-            <div className="animate-in stagger-4 surface-card p-6 mb-6">
-              <h2 className="text-headline mb-4 flex items-center gap-2" style={{ fontSize: "1rem" }}>
-                <AlertTriangle className="w-4 h-4" style={{ color: "var(--ink-rose)" }} />
-                Security Issues ({vulns.length})
-              </h2>
-              <div className="flex flex-col gap-3">
-                {vulns.slice(0, 5).map((v, i) => (
-                  <div key={i} className="flex items-start gap-3 p-3 rounded-lg"
-                       style={{ background: "var(--ink-subtle)" }}>
-                    <span className={`badge ${
-                      v.severity === "critical" ? "badge-rose" :
-                      v.severity === "high" ? "badge-amber" :
-                      "badge-dim"
-                    }`} style={{ fontSize: "0.625rem", padding: "2px 6px", flexShrink: 0 }}>
-                      {v.severity}
-                    </span>
-                    <div>
-                      <p style={{ color: "var(--ink-white)", fontSize: "0.875rem", fontWeight: 500, marginBottom: "4px" }}>
-                        {v.title}
-                      </p>
-                      <p style={{ color: "var(--ink-mid)", fontSize: "0.8125rem", lineHeight: 1.5 }}>
-                        {v.description}
-                      </p>
-                      <p style={{ color: "var(--ink-dim)", fontSize: "0.75rem", fontFamily: "var(--font-mono)", marginTop: "4px" }}>
-                        {v.file}
-                      </p>
-                    </div>
-                  </div>
-                ))}
-                {vulns.length > 5 && (
-                  <p style={{ color: "var(--ink-dim)", fontSize: "0.8125rem", textAlign: "center", padding: "8px" }}>
-                    + {vulns.length - 5} more issues. Sign in to see the full report.
-                  </p>
+              <div
+                style={{
+                  display: "flex",
+                  alignItems: "center",
+                  gap: "1rem",
+                  marginTop: "1rem",
+                  flexWrap: "wrap",
+                  fontSize: "0.75rem",
+                  color: "var(--text-tertiary)",
+                  fontFamily: "var(--font-mono), monospace",
+                }}
+              >
+                {report.repo_name && (
+                  <span style={{ color: "var(--text-secondary)" }}>
+                    {report.repo_name}
+                  </span>
+                )}
+                {report.commit_sha && (
+                  <span>commit {report.commit_sha.slice(0, 7)}</span>
+                )}
+                {completedDate && <span>scanned {completedDate}</span>}
+                {r.platform_detected && (
+                  <span>built with {r.platform_detected}</span>
                 )}
               </div>
             </div>
+          </header>
+
+          {/* Action row */}
+          <div
+            style={{
+              display: "flex",
+              gap: "0.5rem",
+              marginBottom: "2rem",
+              flexWrap: "wrap",
+            }}
+          >
+            <button
+              type="button"
+              onClick={handleCopyLink}
+              className="btn btn-outline"
+              style={{ padding: "8px 14px", fontSize: "0.825rem", gap: "6px" }}
+            >
+              {copied ? <Check size={13} /> : <Copy size={13} />}
+              {copied ? "Link copied" : "Copy link"}
+            </button>
+            <button
+              type="button"
+              onClick={() => setShareOpen(true)}
+              className="btn btn-outline"
+              style={{ padding: "8px 14px", fontSize: "0.825rem", gap: "6px" }}
+            >
+              <Share2 size={13} />
+              Share / embed
+            </button>
+            <Link
+              href="/"
+              className="btn btn-green"
+              style={{
+                padding: "8px 14px",
+                fontSize: "0.825rem",
+                gap: "6px",
+                marginLeft: "auto",
+              }}
+            >
+              Scan your repo
+              <ChevronRight size={13} />
+            </Link>
+          </div>
+
+          {/* Executive summary */}
+          {r.simple_explanation && (
+            <section
+              style={{
+                padding: "1.5rem",
+                background: "var(--surface-alt)",
+                border: "1px solid var(--border-subtle)",
+                borderRadius: 10,
+                marginBottom: "1rem",
+              }}
+            >
+              <h2
+                style={{
+                  fontSize: "0.72rem",
+                  textTransform: "uppercase",
+                  letterSpacing: "0.1em",
+                  color: "var(--text-tertiary)",
+                  fontWeight: 600,
+                  margin: "0 0 0.75rem",
+                }}
+              >
+                What this app does
+              </h2>
+              <p
+                style={{
+                  color: "var(--text-primary)",
+                  fontSize: "0.9rem",
+                  lineHeight: 1.6,
+                  margin: 0,
+                }}
+              >
+                {r.simple_explanation}
+              </p>
+            </section>
           )}
 
-          {/* ── Tech Stack ── */}
+          {/* Tech stack pill row */}
           {techStack.length > 0 && (
-            <div className="animate-in stagger-5 surface-card p-6 mb-6">
-              <h2 className="text-headline mb-4 flex items-center gap-2" style={{ fontSize: "1rem" }}>
-                <Layers className="w-4 h-4" style={{ color: "var(--ink-gold)" }} />
-                Tech Stack
+            <section
+              style={{
+                padding: "1.5rem",
+                background: "var(--surface-alt)",
+                border: "1px solid var(--border-subtle)",
+                borderRadius: 10,
+                marginBottom: "1rem",
+              }}
+            >
+              <h2
+                style={{
+                  fontSize: "0.72rem",
+                  textTransform: "uppercase",
+                  letterSpacing: "0.1em",
+                  color: "var(--text-tertiary)",
+                  fontWeight: 600,
+                  margin: "0 0 0.75rem",
+                  display: "flex",
+                  alignItems: "center",
+                  gap: 6,
+                }}
+              >
+                <Layers size={11} />
+                Stack
               </h2>
-              <div className="flex flex-wrap gap-2">
+              <div style={{ display: "flex", flexWrap: "wrap", gap: "0.4rem" }}>
                 {techStack.map((t, i) => (
-                  <span key={i} className="badge" style={{
-                    background: "var(--ink-subtle)",
-                    border: "1px solid var(--ink-muted)",
-                    color: "var(--ink-light)",
-                    fontSize: "0.75rem",
-                    padding: "4px 10px",
-                  }}>
+                  <span
+                    key={`${t.name}-${i}`}
+                    style={{
+                      padding: "3px 9px",
+                      background: "var(--surface-main)",
+                      border: "1px solid var(--border-subtle)",
+                      borderRadius: 999,
+                      fontSize: "0.72rem",
+                      color: "var(--text-secondary)",
+                    }}
+                  >
                     {t.name}
                   </span>
                 ))}
               </div>
-            </div>
+            </section>
           )}
 
-          {/* ── Powered by ── */}
-          <div className="animate-in stagger-6 text-center mt-12">
-            <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full"
-                 style={{ background: "var(--ink-deep)", border: "1px solid var(--ink-subtle)" }}>
-              <Shield className="w-3.5 h-3.5" style={{ color: "var(--ink-gold)" }} />
-              <span style={{ color: "var(--ink-mid)", fontSize: "0.8125rem" }}>
-                Protected by <Link href="/" style={{ color: "var(--ink-gold)", fontWeight: 600 }}>Greenlit</Link>
+          {/* Vulnerabilities */}
+          <section
+            style={{
+              padding: "1.5rem",
+              background: "var(--surface-alt)",
+              border: "1px solid var(--border-subtle)",
+              borderRadius: 10,
+              marginBottom: "2rem",
+            }}
+          >
+            <h2
+              style={{
+                fontSize: "0.72rem",
+                textTransform: "uppercase",
+                letterSpacing: "0.1em",
+                color: "var(--text-tertiary)",
+                fontWeight: 600,
+                margin: "0 0 0.75rem",
+              }}
+            >
+              Findings ({vulns.length})
+            </h2>
+            <VulnerabilityList vulnerabilities={vulns} isPaywalled />
+          </section>
+
+          {/* AI Sidekick */}
+          <AiSidekick scanId={scanId} report={r} />
+
+          {/* Trust footer */}
+          <footer
+            style={{
+              marginTop: "3rem",
+              padding: "1.5rem",
+              borderTop: "1px solid var(--border-subtle)",
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "space-between",
+              flexWrap: "wrap",
+              gap: "1rem",
+              fontSize: "0.8rem",
+              color: "var(--text-tertiary)",
+            }}
+          >
+            <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+              <Shield size={13} style={{ color: "var(--green)" }} />
+              <span>
+                Attested by{" "}
+                <Link
+                  href="/"
+                  style={{ color: "var(--green)", fontWeight: 600 }}
+                >
+                  Greenlit
+                </Link>{" "}
+                — live red-team for AI-built apps
               </span>
             </div>
-          </div>
+            <Link
+              href="/state-of-vibe-coding"
+              style={{
+                color: "var(--text-secondary)",
+                textDecoration: "underline",
+                textDecorationColor: "var(--border-strong)",
+                textUnderlineOffset: 3,
+              }}
+            >
+              How does this app compare?
+            </Link>
+          </footer>
         </div>
       </main>
 
       <Footer />
+
+      <ShareModal
+        isOpen={shareOpen}
+        onClose={() => setShareOpen(false)}
+        repoId={scanId}
+        scanId={scanId}
+        repoName={report.repo_name || "your repo"}
+      />
     </div>
   );
 }

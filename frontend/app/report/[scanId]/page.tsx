@@ -27,6 +27,7 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
       ? explanation.slice(0, 155)
       : `${vulnCount} security issue${vulnCount !== 1 ? "s" : ""} found. View the full safety report on Greenlit.`;
 
+    const ogUrl = `${API_BASE}/api/public/og/${scanId}.svg`;
     return {
       title,
       description,
@@ -35,11 +36,13 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
         description,
         type: "website",
         siteName: "Greenlit",
+        images: [{ url: ogUrl, width: 1200, height: 630, alt: `${repoName} — Greenlit security report` }],
       },
       twitter: {
-        card: "summary",
+        card: "summary_large_image",
         title,
         description,
+        images: [ogUrl],
       },
     };
   } catch {
